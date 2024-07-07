@@ -228,7 +228,7 @@
       );
 
       return {
-        author: display_name ?? displayName ?? name ?? defaultName,
+        author: display_name || displayName || name || defaultName,
         imageUrl: picture,
       };
     } catch (err) {
@@ -273,7 +273,7 @@
       await drawQuoteImage({
         canvas,
         ctx,
-        imageUrl,
+        imageUrl: imageUrl.replace('https://nostr.build/i/p', 'https://pfp.nostr.build'),
         author,
         quote,
         noteUrl,
