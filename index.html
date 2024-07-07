@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Quotestr</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@300&display=swap");
+
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            max-width: 800px;
+            margin: auto;
+        }
+
+        button {
+            background-color: #7f00ff;
+            color: white;
+            border: 1px solid grey;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: indigo;
+        }
+
+        #canvas-container {
+            margin-top: 20px;
+            position: relative;
+        }
+
+        input {
+            width: 70%;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            background-color: black;
+        }
+
+        #generate-button:disabled {
+            cursor: not-allowed;
+            background-color: #ccc;
+        }
+
+        #download-button {
+            display: none;
+            margin-left: auto;
+        }
+    </style>
+</head>
+<body>
+<h1>Make It A Quote</h1>
+<form id="quote-form">
+    <input type="text" name="noteId" placeholder="Enter nevent or note ID" />
+    <button id="generate-button">Generate Image</button>
+</form>
+<div id="canvas-container">
+    <canvas id="canvas" width="800" height="600"></canvas>
+</div>
+<button id="download-button">Download Image</button>
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<script>
+  async function loadImage(url) {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.src = URL.createObjectURL(blob);
+    });
+  }
+
+  function showLoading(ctx) {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = "64px Arial";
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+    ctx.fillText("Loading...", canvas.width / 2, canvas.height / 2);
+  }
+
+  function drawText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(" ");
+    let line = "";
+    let testLine = "";
+    let testWidth = 0;
+    const lines = [];
+
+    for (let i = 0; i < words.length; i++) {
+      testLine = line + words[i] + " ";
+      testWidth = ctx.measureText(testLine).width;
+      if (testWidth > maxWidth && i > 0) {
+        lines.push(line);
+        line = words[i] + " ";
+      } else {
+        line = testLine;
+      }
+    }
+    lines.push(line);
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineWidth = ctx.measureText(lines[i]).width;
+      const startX = x + (maxWidth - lineWidth) / 2;
+      ctx.fillText(lines[i], startX, y + i * lineHeight);
+    }
+
+    return lines.length;
+  }
+
+  function applyGrayscale(ctx, width, height) {
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      data[i] = avg; // red
+      data[i + 1] = avg; // green
+      data[i + 2] = avg; // blue
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  async function generateQRCode(text) {
+    return new Promise((resolve, reject) => {
+      QRCode.toDataURL(text, { width: 100, margin: 1 }, (err, url) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(url);
+        }
+      });
+    });
+  }
+
+  async function drawQuoteImage({
+                                  canvas,
+                                  ctx,
+                                  imageUrl,
+                                  author,
+                                  quote,
+                                  noteUrl,
+                                }) {
+    const image = await loadImage(imageUrl);
+
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const targetHeight = 600;
+    const targetWidth = image.width * (targetHeight / image.height);
+    const offsetX = (400 - targetWidth) / 2;
+    const quoteFontSize = 24;
+
+    ctx.drawImage(image, offsetX, 0, targetWidth, targetHeight);
+
+    applyGrayscale(ctx, targetWidth, targetHeight);
+
+    ctx.fillStyle = "black";
+    ctx.fillRect(400, 0, 400, 600);
+    ctx.textAlign = "left";
+    ctx.font = `${quoteFontSize}px "Source Serif 4", serif`;
+    ctx.fillStyle = "white";
+
+    const textX = 420;
+    const textY = 120;
+    const maxWidth = 360;
+    const lineHeight = quoteFontSize + 8;
+    const authorFontSize = quoteFontSize * 0.75;
+    const lines = drawText(ctx, quote, textX, textY, maxWidth, lineHeight);
+
+    ctx.font = `italic ${authorFontSize}px "Source Serif 4", serif`;
+    ctx.fillStyle = "white";
+
+    drawText(
+      ctx,
+      `— ${author}`,
+      textX,
+      lines * lineHeight + textY + authorFontSize * 0.5,
+      maxWidth,
+      lineHeight,
+    );
+
+    const qrCodeUrl = await generateQRCode(noteUrl);
+    const qrImage = new Image();
+    qrImage.src = qrCodeUrl;
+    qrImage.onload = () => {
+      // Draw the QR code in the bottom right corner
+      const qrSize = 100; // Size of the QR code
+      ctx.drawImage(
+        qrImage,
+        canvas.width - qrSize - 20,
+        canvas.height - qrSize - 20,
+        qrSize,
+        qrSize,
+      );
+    };
+  }
+
+  async function getNote(noteId) {
+    try {
+      return await fetch(`https://nostrstuff.com/api/notes/${noteId}`).then(
+        (res) => res.json(),
+      );
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async function getProfile(pubkey) {
+    const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
+    const defaultName = "A Nostrich";
+
+    try {
+      const profile = await fetch(
+        `https://nostrstuff.com/api/users/${pubkey}`,
+      ).then((res) => res.json());
+      const { display_name, displayName, name, picture } = JSON.parse(
+        profile.content,
+      );
+
+      return {
+        author: display_name ?? displayName ?? name ?? defaultName,
+        imageUrl: picture,
+      };
+    } catch (err) {
+      return { author: defaultName, imageUrl: defaultNostrichImage };
+    }
+  }
+
+  document
+    .getElementById("quote-form")
+    .addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const noteId = formData.get("noteId").trim();
+
+      if (!noteId) {
+        return alert("Please enter a valid nevent or note ID.");
+      }
+
+      document.getElementById("download-button").style.display = "none";
+      document.getElementById("generate-button").disabled = true;
+
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+
+      showLoading(ctx);
+
+      const nostrEvent = await getNote(noteId);
+
+      if (!nostrEvent) {
+        return alert(
+          `Couldn't find Nostr note with ID ${noteId}. Contact NotBiebs and tell him this shit sucks.`,
+        );
+      }
+
+      const { author, imageUrl } = await getProfile(nostrEvent.pubkey);
+      const maxChars = 280;
+      const noteUrl = `https://njump.me/${noteId}`;
+      const quote = `${nostrEvent.content.slice(0, maxChars)}${
+        nostrEvent.content.length > maxChars ? "..." : ""
+      }`;
+
+      await drawQuoteImage({
+        canvas,
+        ctx,
+        imageUrl,
+        author,
+        quote,
+        noteUrl,
+      });
+
+      document.getElementById("download-button").style.display = "block";
+      document.getElementById("generate-button").disabled = false;
+    });
+
+  document
+    .getElementById("download-button")
+    .addEventListener("click", () => {
+      const canvas = document.getElementById("canvas");
+      const link = document.createElement("a");
+
+      link.href = canvas.toDataURL("image/jpeg");
+      link.download = "make-it-a-quote.jpg";
+      link.click();
+    });
+</script>
+</body>
+</html>
