@@ -273,7 +273,7 @@
       await drawQuoteImage({
         canvas,
         ctx,
-        imageUrl: imageUrl.replace('https://nostr.build/i/p', 'https://pfp.nostr.build'),
+        imageUrl: `https://nostrstuff.com/api/proxy?url=${imageUrl}`,
         author,
         quote,
         noteUrl,
