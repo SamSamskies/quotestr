@@ -241,7 +241,7 @@
     .addEventListener("submit", async (event) => {
       event.preventDefault();
       const formData = new FormData(event.target);
-      const noteId = formData.get("noteId").trim();
+      const noteId = formData.get("noteId").trim().replace(/^nostr:/, '');
 
       if (!noteId) {
         return alert("Please enter a valid nevent or note ID.");
