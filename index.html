@@ -28,11 +28,6 @@
             background-color: indigo;
         }
 
-        #canvas-container {
-            margin-top: 20px;
-            position: relative;
-        }
-
         input {
             width: 70%;
             padding: 10px;
@@ -41,8 +36,7 @@
         }
 
         canvas {
-            border: 1px solid #ccc;
-            background-color: black;
+            display: none;
         }
 
         #generate-button:disabled {
@@ -50,9 +44,11 @@
             background-color: #ccc;
         }
 
-        #download-button {
+        #result-image {
             display: none;
-            margin-left: auto;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 800px;
         }
     </style>
 </head>
@@ -62,10 +58,8 @@
     <input type="text" name="noteId" placeholder="Enter nevent or note ID" />
     <button id="generate-button">Generate Image</button>
 </form>
-<div id="canvas-container">
-    <canvas id="canvas" width="800" height="600"></canvas>
-</div>
-<button id="download-button">Download Image</button>
+<img id="result-image" src="" alt="Generated Quote Image">
+<canvas id="canvas" width="800" height="600"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 <script>
   async function loadImage(url) {
@@ -76,15 +70,6 @@
       img.onload = () => resolve(img);
       img.src = URL.createObjectURL(blob);
     });
-  }
-
-  function showLoading(ctx) {
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.font = "64px Arial";
-    ctx.fillStyle = "white";
-    ctx.textAlign = "center";
-    ctx.fillText("Loading...", canvas.width / 2, canvas.height / 2);
   }
 
   function drawText(ctx, text, x, y, maxWidth, lineHeight) {
@@ -201,6 +186,11 @@
         qrSize,
         qrSize,
       );
+
+      const resultImage = document.getElementById('result-image');
+
+      resultImage.src = canvas.toDataURL('image/jpeg');
+      resultImage.style.display = 'block';
     };
   }
 
@@ -246,14 +236,10 @@
         return alert("Please enter a valid nevent or note ID.");
       }
 
-      document.getElementById("download-button").style.display = "none";
       document.getElementById("generate-button").disabled = true;
 
       const canvas = document.getElementById("canvas");
       const ctx = canvas.getContext("2d");
-
-      showLoading(ctx);
-
       const nostrEvent = await getNote(noteId);
 
       if (!nostrEvent) {
@@ -278,19 +264,7 @@
         noteUrl,
       });
 
-      document.getElementById("download-button").style.display = "block";
       document.getElementById("generate-button").disabled = false;
-    });
-
-  document
-    .getElementById("download-button")
-    .addEventListener("click", () => {
-      const canvas = document.getElementById("canvas");
-      const link = document.createElement("a");
-
-      link.href = canvas.toDataURL("image/jpeg");
-      link.download = "make-it-a-quote.jpg";
-      link.click();
     });
 </script>
 </body>
