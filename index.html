@@ -1,271 +1,389 @@
 <!doctype html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <title>Quotestr</title>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@300&display=swap" rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@300&display=swap"
+      rel="stylesheet"
+    />
     <style>
-        body {
-            font-family: 'Source Serif 4', serif;
-            text-align: center;
-            background-color: #f4f4f4;
-            max-width: 800px;
-            margin: auto;
-        }
+      body {
+        font-family: "Source Serif 4", serif;
+        text-align: center;
+        background-color: #f4f4f4;
+        max-width: 800px;
+        margin: auto;
+      }
 
-        button {
-            background-color: #7f00ff;
-            color: white;
-            border: 1px solid grey;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
+      button {
+        background-color: #7f00ff;
+        color: white;
+        border: 1px solid grey;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+      }
 
-        button:hover {
-            background-color: indigo;
-        }
+      button:hover {
+        background-color: indigo;
+      }
 
-        input {
-            width: 70%;
-            padding: 10px;
-            font-size: 16px;
-            margin-bottom: 10px;
-        }
+      input {
+        width: 70%;
+        padding: 10px;
+        font-size: 16px;
+        margin-bottom: 10px;
+      }
 
-        canvas {
-            display: none;
-        }
+      canvas {
+        display: none;
+      }
 
-        #generate-button:disabled {
-            cursor: not-allowed;
-            background-color: #ccc;
-        }
+      #generate-button:disabled {
+        cursor: not-allowed;
+        background-color: #ccc;
+      }
 
-        #result-image {
-            display: none;
-            margin-top: 20px;
-            width: 100%;
-            max-width: 800px;
-        }
+      #result-image {
+        display: none;
+        margin-top: 20px;
+        width: 100%;
+        max-width: 800px;
+      }
     </style>
-</head>
-<body>
-<h1>Make It A Quote</h1>
-<form id="quote-form">
-    <input type="text" name="noteId" placeholder="Enter nevent or note ID" autofocus />
-    <button id="generate-button">Generate Image</button>
-</form>
-<img id="result-image" src="" alt="Generated Quote Image">
-<canvas id="canvas" width="800" height="600"></canvas>
-<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-<script>
-  async function loadImage(url) {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.src = URL.createObjectURL(blob);
-    });
-  }
+  </head>
+  <body>
+    <h1>Make It A Quote</h1>
+    <form id="quote-form">
+      <input
+        type="text"
+        name="noteId"
+        placeholder="Enter nevent or note ID"
+        autofocus
+      />
+      <button id="generate-button">Generate Image</button>
+    </form>
+    <img id="result-image" src="" alt="Generated Quote Image" />
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script type="module">
+      import { bech32 } from "https://cdn.jsdelivr.net/npm/@scure/base@1.1.1/+esm";
 
-  function drawText(ctx, text, x, y, maxWidth, lineHeight) {
-    const words = text.split(" ");
-    let line = "";
-    let testLine = "";
-    let testWidth = 0;
-    const lines = [];
-
-    for (let i = 0; i < words.length; i++) {
-      testLine = line + words[i] + " ";
-      testWidth = ctx.measureText(testLine).width;
-      if (testWidth > maxWidth && i > 0) {
-        lines.push(line);
-        line = words[i] + " ";
-      } else {
-        line = testLine;
+      async function loadImage(url) {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.src = URL.createObjectURL(blob);
+        });
       }
-    }
-    lines.push(line);
 
-    for (let i = 0; i < lines.length; i++) {
-      const lineWidth = ctx.measureText(lines[i]).width;
-      const startX = x + (maxWidth - lineWidth) / 2;
-      ctx.fillText(lines[i], startX, y + i * lineHeight);
-    }
+      function drawText(ctx, text, x, y, maxWidth, lineHeight) {
+        const words = text.split(" ");
+        let line = "";
+        let testLine = "";
+        let testWidth = 0;
+        const lines = [];
 
-    return lines.length;
-  }
-
-  function applyGrayscale(ctx, width, height) {
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-
-    for (let i = 0; i < data.length; i += 4) {
-      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-      data[i] = avg; // red
-      data[i + 1] = avg; // green
-      data[i + 2] = avg; // blue
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-  }
-
-  async function generateQRCode(text) {
-    return new Promise((resolve, reject) => {
-      QRCode.toDataURL(text, { width: 100, margin: 1 }, (err, url) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(url);
+        for (let i = 0; i < words.length; i++) {
+          testLine = line + words[i] + " ";
+          testWidth = ctx.measureText(testLine).width;
+          if (testWidth > maxWidth && i > 0) {
+            lines.push(line);
+            line = words[i] + " ";
+          } else {
+            line = testLine;
+          }
         }
-      });
-    });
-  }
+        lines.push(line);
 
-  async function drawQuoteImage({
-                                  canvas,
-                                  ctx,
-                                  imageUrl,
-                                  author,
-                                  quote,
-                                  noteUrl,
-                                }) {
-    const image = await loadImage(imageUrl);
+        for (let i = 0; i < lines.length; i++) {
+          const lineWidth = ctx.measureText(lines[i]).width;
+          const startX = x + (maxWidth - lineWidth) / 2;
+          ctx.fillText(lines[i], startX, y + i * lineHeight);
+        }
 
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const targetHeight = 600;
-    const targetWidth = image.width * (targetHeight / image.height);
-    const offsetX = (400 - targetWidth) / 2;
-    const quoteFontSize = 24;
-
-    ctx.drawImage(image, offsetX, 0, targetWidth, targetHeight);
-
-    applyGrayscale(ctx, 400, targetHeight);
-
-    ctx.fillStyle = "black";
-    ctx.fillRect(400, 0, 400, 600);
-    ctx.textAlign = "left";
-    ctx.font = `${quoteFontSize}px "Source Serif 4", serif`;
-    ctx.fillStyle = "white";
-
-    const textX = 420;
-    const textY = 120;
-    const maxWidth = 360;
-    const lineHeight = quoteFontSize + 8;
-    const authorFontSize = quoteFontSize * 0.75;
-    const lines = drawText(ctx, quote, textX, textY, maxWidth, lineHeight);
-
-    ctx.font = `italic ${authorFontSize}px "Source Serif 4", serif`;
-    ctx.fillStyle = "white";
-
-    drawText(
-      ctx,
-      `— ${author}`,
-      textX,
-      lines * lineHeight + textY + authorFontSize * 0.5,
-      maxWidth,
-      lineHeight,
-    );
-
-    const qrCodeUrl = await generateQRCode(noteUrl);
-    const qrImage = new Image();
-    qrImage.src = qrCodeUrl;
-    qrImage.onload = () => {
-      // Draw the QR code in the bottom right corner
-      const qrSize = 100; // Size of the QR code
-      ctx.drawImage(
-        qrImage,
-        canvas.width - qrSize - 20,
-        canvas.height - qrSize - 20,
-        qrSize,
-        qrSize,
-      );
-
-      const resultImage = document.getElementById('result-image');
-
-      resultImage.src = canvas.toDataURL('image/jpeg');
-      resultImage.style.display = 'block';
-    };
-  }
-
-  async function getNote(noteId) {
-    try {
-      return await fetch(`https://nostrstuff.com/api/notes/${noteId}`).then(
-        (res) => res.json(),
-      );
-    } catch (err) {
-      return null;
-    }
-  }
-
-  async function getProfile(pubkey) {
-    const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
-    const defaultName = "A Nostrich";
-
-    try {
-      const profile = await fetch(
-        `https://nostrstuff.com/api/users/${pubkey}`,
-      ).then((res) => res.json());
-      const { display_name, displayName, name, picture } = JSON.parse(
-        profile.content,
-      );
-
-      return {
-        author: display_name || displayName || name || defaultName,
-        imageUrl: picture,
-      };
-    } catch (err) {
-      return { author: defaultName, imageUrl: defaultNostrichImage };
-    }
-  }
-
-  document
-    .getElementById("quote-form")
-    .addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const formData = new FormData(event.target);
-      const noteId = formData.get("noteId").trim().replace(/^nostr:/, '');
-
-      if (!noteId) {
-        return alert("Please enter a valid nevent or note ID.");
+        return lines.length;
       }
 
-      document.getElementById("generate-button").disabled = true;
+      function applyGrayscale(ctx, width, height) {
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
 
-      const canvas = document.getElementById("canvas");
-      const ctx = canvas.getContext("2d");
-      const nostrEvent = await getNote(noteId);
+        for (let i = 0; i < data.length; i += 4) {
+          const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+          data[i] = avg; // red
+          data[i + 1] = avg; // green
+          data[i + 2] = avg; // blue
+        }
 
-      if (!nostrEvent) {
-        return alert(
-          `Couldn't find Nostr note with ID ${noteId}. Contact NotBiebs and tell him this shit sucks.`,
-        );
+        ctx.putImageData(imageData, 0, 0);
       }
 
-      const { author, imageUrl } = await getProfile(nostrEvent.pubkey);
-      const maxChars = 280;
-      const noteUrl = `https://njump.me/${noteId}`;
-      const quote = `${nostrEvent.content.slice(0, maxChars)}${
-        nostrEvent.content.length > maxChars ? "..." : ""
-      }`;
+      async function generateQRCode(text) {
+        return new Promise((resolve, reject) => {
+          QRCode.toDataURL(text, { width: 100, margin: 1 }, (err, url) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(url);
+            }
+          });
+        });
+      }
 
-      await drawQuoteImage({
+      async function drawQuoteImage({
         canvas,
         ctx,
-        imageUrl: `https://nostrstuff.com/api/proxy?url=${imageUrl}`,
+        imageUrl,
         author,
         quote,
         noteUrl,
-      });
+      }) {
+        const image = await loadImage(imageUrl);
 
-      document.getElementById("generate-button").disabled = false;
-    });
-</script>
-</body>
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const targetHeight = 600;
+        const targetWidth = image.width * (targetHeight / image.height);
+        const offsetX = (400 - targetWidth) / 2;
+        const quoteFontSize = 24;
+
+        ctx.drawImage(image, offsetX, 0, targetWidth, targetHeight);
+
+        applyGrayscale(ctx, 400, targetHeight);
+
+        ctx.fillStyle = "black";
+        ctx.fillRect(400, 0, 400, 600);
+        ctx.textAlign = "left";
+        ctx.font = `${quoteFontSize}px "Source Serif 4", serif`;
+        ctx.fillStyle = "white";
+
+        const textX = 420;
+        const textY = 120;
+        const maxWidth = 360;
+        const lineHeight = quoteFontSize + 8;
+        const authorFontSize = quoteFontSize * 0.75;
+        const lines = drawText(ctx, quote, textX, textY, maxWidth, lineHeight);
+
+        ctx.font = `italic ${authorFontSize}px "Source Serif 4", serif`;
+        ctx.fillStyle = "white";
+
+        drawText(
+          ctx,
+          `— ${author}`,
+          textX,
+          lines * lineHeight + textY + authorFontSize * 0.5,
+          maxWidth,
+          lineHeight,
+        );
+
+        const qrCodeUrl = await generateQRCode(noteUrl);
+        const qrImage = new Image();
+        qrImage.src = qrCodeUrl;
+        qrImage.onload = () => {
+          // Draw the QR code in the bottom right corner
+          const qrSize = 100; // Size of the QR code
+          ctx.drawImage(
+            qrImage,
+            canvas.width - qrSize - 20,
+            canvas.height - qrSize - 20,
+            qrSize,
+            qrSize,
+          );
+
+          const resultImage = document.getElementById("result-image");
+
+          resultImage.src = canvas.toDataURL("image/jpeg");
+          resultImage.style.display = "block";
+        };
+      }
+
+      async function getNote(noteId) {
+        try {
+          return await fetch(`https://nostrstuff.com/api/notes/${noteId}`).then(
+            (res) => res.json(),
+          );
+        } catch (err) {
+          return null;
+        }
+      }
+
+      function extractAuthorValues(profile) {
+        const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
+        const defaultName = "A Nostrich";
+        const defaultValues = {
+          author: defaultName,
+          imageUrl: defaultNostrichImage,
+        };
+
+        if (!profile) {
+          return defaultValues;
+        }
+
+        try {
+          const { display_name, displayName, name, picture } = JSON.parse(
+            profile.content,
+          );
+
+          return {
+            author: display_name || displayName || name || defaultName,
+            imageUrl: picture,
+          };
+        } catch (err) {
+          return defaultValues;
+        }
+      }
+
+      function matchAll(text, regex) {
+        const matches = [];
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+          matches.push(match[1]);
+        }
+
+        return matches;
+      }
+
+      function encodeBech32(prefix, data) {
+        const Bech32MaxSize = 5000;
+        let words = bech32.toWords(data);
+        return bech32.encode(prefix, words, Bech32MaxSize);
+      }
+
+      export function encodeBytes(prefix, bytes) {
+        return encodeBech32(prefix, bytes);
+      }
+
+      function hexToBytes(hex) {
+        if (hex.length % 2 !== 0) {
+          throw new Error("Invalid hex string");
+        }
+        const bytes = [];
+        for (let i = 0; i < hex.length; i += 2) {
+          bytes.push(parseInt(hex.substr(i, 2), 16));
+        }
+        return new Uint8Array(bytes);
+      }
+
+      function npubEncode(hex) {
+        return encodeBytes("npub", hexToBytes(hex));
+      }
+
+      function extractUserIds(event) {
+        const userIdRegex =
+          /(?:nostr:|@)?(npub1[023456789acdefghjklmnpqrstuvwxyz]{58})/g;
+
+        return [event.pubkey, ...matchAll(event.content, userIdRegex)];
+      }
+
+      function buildUserProfilesUrl(userIds) {
+        const params = new URLSearchParams();
+
+        userIds.forEach((item) => {
+          params.append("userId", item);
+        });
+
+        return `https://nostrstuff.com/api/users?${params.toString()}`;
+      }
+
+      async function getUserProfiles(userIds) {
+        const url = buildUserProfilesUrl(userIds);
+
+        try {
+          const profiles = await fetch(url).then((res) => res.json());
+
+          return Object.fromEntries(
+            profiles.map((item) => [item.pubkey, item]),
+          );
+        } catch (err) {
+          return [];
+        }
+      }
+
+      function getUserName(profile) {
+        const { name } = JSON.parse(profile.content);
+
+        return name;
+      }
+
+      function normalizeQuote(content, profiles) {
+        const maxChars = 280;
+        let result = content;
+
+        Object.keys(profiles).forEach((userId) => {
+          const npub = npubEncode(userId);
+          const re = new RegExp(`(nostr:|@)?${npub}`, "g");
+          const userProfile = profiles[userId];
+
+          if (userProfile) {
+            result = result.replace(re, `@${getUserName(userProfile)}`);
+          }
+        });
+
+        return `${result.slice(0, maxChars)}${
+          result.length > maxChars ? "..." : ""
+        }`;
+      }
+
+      async function getDataFromEvent(event) {
+        const userIds = extractUserIds(event);
+        const profiles = await getUserProfiles(userIds);
+        const { author, imageUrl } = extractAuthorValues(
+          profiles[event.pubkey],
+        );
+        const quote = normalizeQuote(event.content, profiles);
+
+        return { author, imageUrl, quote };
+      }
+
+      document
+        .getElementById("quote-form")
+        .addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(event.target);
+          const noteId = formData
+            .get("noteId")
+            .trim()
+            .replace(/^nostr:/, "");
+
+          if (!noteId) {
+            return alert("Please enter a valid nevent or note ID.");
+          }
+
+          document.getElementById("generate-button").disabled = true;
+
+          const canvas = document.getElementById("canvas");
+          const ctx = canvas.getContext("2d");
+          const nostrEvent = await getNote(noteId);
+
+          if (!nostrEvent) {
+            return alert(
+              `Couldn't find Nostr note with ID ${noteId}. Contact NotBiebs and tell him this shit sucks.`,
+            );
+          }
+
+          const { author, imageUrl, quote } =
+            await getDataFromEvent(nostrEvent);
+          const noteUrl = `https://njump.me/${noteId}`;
+
+          await drawQuoteImage({
+            canvas,
+            ctx,
+            imageUrl: `https://nostrstuff.com/api/proxy?url=${imageUrl}`,
+            author,
+            quote,
+            noteUrl,
+          });
+
+          document.getElementById("generate-button").disabled = false;
+        });
+    </script>
+  </body>
 </html>
