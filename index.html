@@ -334,6 +334,14 @@
         }`;
       }
 
+      function enableGenerateButton() {
+        document.getElementById("generate-button").disabled = false;
+      }
+
+      function disableGenerateButton() {
+        document.getElementById("generate-button").disabled = true;
+      }
+
       async function getDataFromEvent(event) {
         const userIds = extractUserIds(event);
         const profiles = await getUserProfiles(userIds);
@@ -359,13 +367,15 @@
             return alert("Please enter a valid nevent or note ID.");
           }
 
-          document.getElementById("generate-button").disabled = true;
+          disableGenerateButton();
 
           const canvas = document.getElementById("canvas");
           const ctx = canvas.getContext("2d");
           const nostrEvent = await getNote(noteId);
 
           if (!nostrEvent) {
+            enableGenerateButton();
+
             return alert(
               `Couldn't find Nostr note with ID ${noteId}. Contact NotBiebs and tell him this shit sucks.`,
             );
@@ -384,7 +394,7 @@
             noteUrl,
           });
 
-          document.getElementById("generate-button").disabled = false;
+          enableGenerateButton();
         });
     </script>
   </body>
