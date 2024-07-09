@@ -327,7 +327,9 @@
           }
         });
 
-        return `${result.slice(0, maxChars)}${
+        const re = new RegExp("\n", "g");
+
+        return `${result.replace(re, "").slice(0, maxChars)}${
           result.length > maxChars ? "..." : ""
         }`;
       }
