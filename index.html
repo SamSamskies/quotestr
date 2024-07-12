@@ -30,7 +30,13 @@
         text-decoration: none;
       }
 
-      button {
+      nav button {
+        border: 0;
+        cursor: pointer;
+        background: transparent;
+      }
+
+      #generate-button {
         background-color: #7f00ff;
         color: white;
         border: 1px solid grey;
@@ -39,7 +45,7 @@
         cursor: pointer;
       }
 
-      button:hover {
+      #generate-button:hover {
         background-color: indigo;
       }
 
@@ -50,7 +56,7 @@
         margin-bottom: 10px;
       }
 
-      canvas {
+      #canvas {
         display: none;
       }
 
@@ -85,6 +91,12 @@
           />
         </svg>
       </a>
+      <button
+        data-npub="npub1vp8fdcyejd4pqjyrjk9sgz68vuhq7pyvnzk8j0ehlljvwgp8n6eqsrnpsw"
+        title="Click to zap me :)"
+      >
+        ⚡️
+      </button>
     </nav>
     <h1>Make It A Quote</h1>
     <form id="quote-form">
@@ -98,6 +110,7 @@
     </form>
     <img id="result-image" src="" alt="Generated Quote Image" />
     <canvas id="canvas" width="800" height="600"></canvas>
+    <script src="https://cdn.jsdelivr.net/npm/nostr-zap@0.22.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
     <script type="module">
       import { bech32 } from "https://cdn.jsdelivr.net/npm/@scure/base@1.1.1/+esm";
