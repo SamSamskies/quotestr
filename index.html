@@ -340,11 +340,11 @@
         return encodeBytes("npub", hexToBytes(hex));
       }
 
-      function extractUserIds(event) {
+      function extractUserIds({ authorPubkey, content }) {
         const userIdRegex =
           /(?:nostr:|@)?(npub1[023456789acdefghjklmnpqrstuvwxyz]{58})/g;
 
-        return [event.pubkey, ...matchAll(event.content, userIdRegex)];
+        return [authorPubkey, ...matchAll(content, userIdRegex)];
       }
 
       function buildUserProfilesUrl(userIds) {
@@ -406,13 +406,39 @@
         document.getElementById("generate-button").disabled = true;
       }
 
+      function isZapReceiptEvent(event) {
+        return event.kind === 9735;
+      }
+
+      function getZapEvent(event) {
+        try {
+          return JSON.parse(event.tags.find((t) => t[0] === "description")[1]);
+        } catch (err) {
+          return null;
+        }
+      }
+
+      function getContent(event) {
+        return isZapReceiptEvent(event)
+          ? getZapEvent(event).content
+          : event.content;
+      }
+
+      function getAuthorPubkey(event) {
+        return isZapReceiptEvent(event)
+          ? getZapEvent(event).pubkey
+          : event.pubkey;
+      }
+
       async function getDataFromEvent(event) {
-        const userIds = extractUserIds(event);
+        const content = getContent(event);
+        const authorPubkey = getAuthorPubkey(event);
+        const userIds = extractUserIds({ authorPubkey, content });
         const profiles = await getUserProfiles(userIds);
         const { author, imageUrl } = extractAuthorValues(
-          profiles[event.pubkey],
+          profiles[authorPubkey],
         );
-        const quote = normalizeQuote(event.content, profiles);
+        const quote = normalizeQuote(content, profiles);
 
         return { author, imageUrl, quote };
       }
