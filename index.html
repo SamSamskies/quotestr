@@ -115,6 +115,7 @@
     <script type="module">
       import { bech32 } from "https://cdn.jsdelivr.net/npm/@scure/base@1.1.1/+esm";
 
+      const Bech32MaxSize = 5000;
       const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
 
       async function imageUrlToBlob(imageUrl) {
@@ -316,7 +317,6 @@
       }
 
       function encodeBech32(prefix, data) {
-        const Bech32MaxSize = 5000;
         let words = bech32.toWords(data);
         return bech32.encode(prefix, words, Bech32MaxSize);
       }
@@ -336,15 +336,57 @@
         return new Uint8Array(bytes);
       }
 
-      function npubEncode(hex) {
-        return encodeBytes("npub", hexToBytes(hex));
+      function bytesToHex(bytes) {
+        return Array.from(bytes, (byte) =>
+          byte.toString(16).padStart(2, "0"),
+        ).join("");
       }
 
-      function extractUserIds({ authorPubkey, content }) {
-        const userIdRegex =
-          /(?:nostr:|@)?(npub1[023456789acdefghjklmnpqrstuvwxyz]{58})/g;
+      function parseTLV(data) {
+        let result = {};
+        let rest = data;
+        while (rest.length > 0) {
+          let t = rest[0];
+          let l = rest[1];
+          if (!l) throw new Error(`malformed TLV ${t}`);
+          let v = rest.slice(2, 2 + l);
+          rest = rest.slice(2 + l);
+          if (v.length < l)
+            throw new Error(`not enough data to read on TLV ${t}`);
+          result[t] = result[t] || [];
+          result[t].push(v);
+        }
+        return result;
+      }
 
-        return [authorPubkey, ...matchAll(content, userIdRegex)];
+      function decode(nip19Id) {
+        let { prefix, words } = bech32.decode(nip19Id, Bech32MaxSize);
+        let data = new Uint8Array(bech32.fromWords(words));
+
+        switch (prefix) {
+          case "nprofile": {
+            let tlv = parseTLV(data);
+            if (!tlv[0]?.[0]) throw new Error("missing TLV 0 for nprofile");
+            if (tlv[0][0].length !== 32)
+              throw new Error("TLV 0 should be 32 bytes");
+
+            return bytesToHex(tlv[0][0]);
+          }
+          case "npub":
+            return bytesToHex(data);
+          default:
+            throw new Error(`unknown prefix ${prefix}`);
+        }
+      }
+
+      function extractMentionIds(content) {
+        const userIdRegex =
+          /(?:nostr:|@)?(npub1[023456789acdefghjklmnpqrstuvwxyz]{58}|nprofile1[023456789acdefghjklmnpqrstuvwxyz]{61,})/g;
+
+        return matchAll(content, userIdRegex).map((nip19Id) => ({
+          pubkey: decode(nip19Id),
+          nip19Id,
+        }));
       }
 
       function buildUserProfilesUrl(userIds) {
@@ -377,17 +419,15 @@
         return name;
       }
 
-      function normalizeQuote(content, profiles) {
+      function normalizeQuote(content, mentionIdMap) {
         const maxChars = 280;
         let result = content;
 
-        Object.keys(profiles).forEach((userId) => {
-          const npub = npubEncode(userId);
-          const re = new RegExp(`(nostr:|@)?${npub}`, "g");
-          const userProfile = profiles[userId];
+        Object.entries(mentionIdMap).forEach(([nip19Id, profile]) => {
+          const re = new RegExp(`(nostr:|@)?${nip19Id}`, "g");
 
-          if (userProfile) {
-            result = result.replace(re, `@${getUserName(userProfile)}`);
+          if (profile) {
+            result = result.replace(re, `@${getUserName(profile)}`);
           }
         });
 
@@ -433,12 +473,21 @@
       async function getDataFromEvent(event) {
         const content = getContent(event);
         const authorPubkey = getAuthorPubkey(event);
-        const userIds = extractUserIds({ authorPubkey, content });
-        const profiles = await getUserProfiles(userIds);
+        const mentionIds = extractMentionIds(content);
+        const profiles = await getUserProfiles([
+          authorPubkey,
+          ...mentionIds.map(({ nip19Id }) => nip19Id),
+        ]);
         const { author, imageUrl } = extractAuthorValues(
           profiles[authorPubkey],
         );
-        const quote = normalizeQuote(content, profiles);
+        const mentionIdMap = {};
+
+        mentionIds.forEach(({ pubkey, nip19Id }) => {
+          mentionIdMap[nip19Id] = profiles[pubkey];
+        });
+
+        const quote = normalizeQuote(content, mentionIdMap);
 
         return { author, imageUrl, quote };
       }
