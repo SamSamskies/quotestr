@@ -36,6 +36,12 @@
         background: transparent;
       }
 
+      #upload-button {
+        display: none;
+        margin: 20px auto 40px auto;
+      }
+
+      #upload-button,
       #generate-button {
         background-color: #7f00ff;
         color: white;
@@ -45,6 +51,7 @@
         cursor: pointer;
       }
 
+      #upload-button:hover,
       #generate-button:hover {
         background-color: indigo;
       }
@@ -60,6 +67,7 @@
         display: none;
       }
 
+      #upload-button:disabled,
       #generate-button:disabled {
         cursor: not-allowed;
         background-color: #ccc;
@@ -110,13 +118,56 @@
     </form>
     <img id="result-image" src="" alt="Generated Quote Image" />
     <canvas id="canvas" width="800" height="600"></canvas>
+    <button id="upload-button">Upload to nostr.build</button>
     <script src="https://cdn.jsdelivr.net/npm/nostr-zap@0.22.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
     <script type="module">
       import { bech32 } from "https://cdn.jsdelivr.net/npm/@scure/base@1.1.1/+esm";
+      import { uploadFile } from "https://cdn.jsdelivr.net/npm/nostr-build@0.2.1/+esm";
+      import Swal from "https://cdn.jsdelivr.net/npm/sweetalert2@11.12.4/+esm";
 
       const Bech32MaxSize = 5000;
       const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
+      const canvas = document.getElementById("canvas");
+      const uploadButton = document.getElementById("upload-button");
+      const resultImage = document.getElementById("result-image");
+
+      uploadButton.addEventListener("click", () => {
+        canvas.toBlob(async (blob) => {
+          const file = new File([blob], "quotestr.png");
+          const sign = (event) => window.nostr.signEvent(event);
+
+          try {
+            uploadButton.disabled = true;
+
+            const { nip94_event: nip94Event } = await uploadFile({
+              file,
+              sign,
+            });
+            const nostrBuildImgSrc = nip94Event.tags.find(
+              (t) => t[0] === "url",
+            )?.[1];
+
+            if (nostrBuildImgSrc) {
+              resultImage.src = nostrBuildImgSrc;
+            }
+
+            Swal.fire({
+              title: "Success 🎉",
+              text: "You can now right-click the image to copy the nostr.build URL",
+              icon: "success",
+            });
+          } catch (err) {
+            Swal.fire({
+              title: "Error",
+              text: err.message || "Something went wrong :(",
+              icon: "error",
+            });
+          } finally {
+            uploadButton.disabled = false;
+          }
+        });
+      });
 
       async function imageUrlToBlob(imageUrl) {
         const response = await fetch(imageUrl);
@@ -262,8 +313,6 @@
             qrSize,
             qrSize,
           );
-
-          const resultImage = document.getElementById("result-image");
 
           resultImage.src = canvas.toDataURL("image/jpeg");
           resultImage.style.display = "block";
@@ -508,7 +557,6 @@
 
           disableGenerateButton();
 
-          const canvas = document.getElementById("canvas");
           const ctx = canvas.getContext("2d");
           const nostrEvent = await getNote(noteId);
 
@@ -534,6 +582,10 @@
           });
 
           enableGenerateButton();
+
+          if (window.nostr) {
+            uploadButton.style.display = "block";
+          }
         });
     </script>
   </body>
