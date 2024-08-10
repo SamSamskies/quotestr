@@ -125,6 +125,7 @@
       import { bech32 } from "https://cdn.jsdelivr.net/npm/@scure/base@1.1.1/+esm";
       import { uploadFile } from "https://cdn.jsdelivr.net/npm/nostr-build@0.2.1/+esm";
       import Swal from "https://cdn.jsdelivr.net/npm/sweetalert2@11.12.4/+esm";
+      import { init as initNostrLogin } from "https://cdn.jsdelivr.net/npm/nostr-login@1.5.2/+esm";
 
       const Bech32MaxSize = 5000;
       const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
@@ -132,7 +133,15 @@
       const uploadButton = document.getElementById("upload-button");
       const resultImage = document.getElementById("result-image");
 
-      uploadButton.addEventListener("click", () => {
+      if (!window.nostr) {
+        initNostrLogin({ noBanner: true });
+      }
+
+      uploadButton.addEventListener("click", async () => {
+        if (!resultImage.src.startsWith("data:image")) {
+          return Swal.fire("image has already been uploaded to nostr.build");
+        }
+
         canvas.toBlob(async (blob) => {
           const file = new File([blob], "quotestr.png");
           const sign = (event) => window.nostr.signEvent(event);
@@ -158,6 +167,16 @@
               icon: "success",
             });
           } catch (err) {
+            if (
+              [
+                "user rejected",
+                "prompt was closed",
+                "rejected by user",
+              ].includes(err.message.toLowerCase())
+            ) {
+              return;
+            }
+
             Swal.fire({
               title: "Error",
               text: err.message || "Something went wrong :(",
@@ -588,10 +607,7 @@
           });
 
           enableGenerateButton();
-
-          if (window.nostr) {
-            uploadButton.style.display = "block";
-          }
+          uploadButton.style.display = "block";
         });
     </script>
   </body>
