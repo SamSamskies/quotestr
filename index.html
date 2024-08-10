@@ -552,7 +552,11 @@
             .replace(/^nostr:/, "");
 
           if (!noteId) {
-            return alert("Please enter a valid nevent or note ID.");
+            return Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: "Please enter a valid Nostr nevent or note ID.",
+            });
           }
 
           disableGenerateButton();
@@ -563,9 +567,11 @@
           if (!nostrEvent) {
             enableGenerateButton();
 
-            return alert(
-              `Couldn't find Nostr note with ID ${noteId}. Contact NotBiebs and tell him this shit sucks.`,
-            );
+            return Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: `Couldn't find Nostr note with ID ${noteId}. Contact NotBiebs and tell him this shit sucks.`,
+            });
           }
 
           const { author, imageUrl, quote } =
