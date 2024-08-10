@@ -125,7 +125,10 @@
       import { bech32 } from "https://cdn.jsdelivr.net/npm/@scure/base@1.1.1/+esm";
       import { uploadFile } from "https://cdn.jsdelivr.net/npm/nostr-build@0.2.1/+esm";
       import Swal from "https://cdn.jsdelivr.net/npm/sweetalert2@11.12.4/+esm";
-      import { init as initNostrLogin } from "https://cdn.jsdelivr.net/npm/nostr-login@1.5.2/+esm";
+      import {
+        init as initNostrLogin,
+        logout as logoutNostrLogin,
+      } from "https://cdn.jsdelivr.net/npm/nostr-login@1.5.2/+esm";
 
       const Bech32MaxSize = 5000;
       const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
@@ -177,6 +180,7 @@
               return;
             }
 
+            logoutNostrLogin();
             Swal.fire({
               title: "Error",
               text: err.message || "Something went wrong :(",
