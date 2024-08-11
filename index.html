@@ -137,7 +137,7 @@
       const resultImage = document.getElementById("result-image");
 
       if (!window.nostr) {
-        initNostrLogin({ noBanner: true });
+        initNostrLogin({ noBanner: false });
       }
 
       uploadButton.addEventListener("click", async () => {
