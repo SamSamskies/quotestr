@@ -215,6 +215,23 @@
         });
       }
 
+      async function convertWebpToPng(webpUrl) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/png"));
+          };
+          img.onerror = reject;
+          img.src = webpUrl;
+        });
+      }
+
       async function drawQuoteImage({ imageUrl, author, quote, noteUrl }) {
         const quoteObject = {
           type: "div",
@@ -229,8 +246,12 @@
             children: [
               {
                 type: "img",
+                width: 400,
+                height: 600,
                 props: {
-                  src: imageUrl,
+                  src: imageUrl.endsWith(".webp")
+                    ? await convertWebpToPng(imageUrl)
+                    : imageUrl,
                   style: {
                     width: "400px",
                     height: "100%",
@@ -335,7 +356,7 @@
                 codepoints = "2620";
               }
 
-              const url = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${codepoints}.svg`;
+              const url = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${codepoints.replace(/-fe0f$/, "")}.svg`;
               const response = await fetch(url);
               const svgText = await response.text();
               return `data:image/svg+xml;base64,${btoa(svgText)}`;
