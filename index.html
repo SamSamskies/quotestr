@@ -16,6 +16,7 @@
         background-color: #f4f4f4;
         max-width: 800px;
         margin: auto;
+        padding: 20px;
       }
 
       nav {
@@ -56,11 +57,23 @@
         background-color: indigo;
       }
 
+      form {
+        max-width: 600px;
+        margin: auto;
+      }
+
       input {
-        width: 70%;
+        width: 100%;
         padding: 10px;
         font-size: 16px;
         margin-bottom: 10px;
+        box-sizing: border-box;
+      }
+
+      .input-row {
+        display: flex;
+        justify-content: flex-end;
+        gap: 20px;
       }
 
       #canvas {
@@ -114,7 +127,14 @@
         placeholder="Enter nevent or note ID"
         autofocus
       />
-      <button id="generate-button">Generate Image</button>
+      <div class="input-row">
+        <select id="font-size-select">
+          <option value="24" selected>Font Size: 24px</option>
+          <option value="20">Font Size: 20px</option>
+          <option value="16">Font Size: 16px</option>
+        </select>
+        <button id="generate-button">Generate Image</button>
+      </div>
     </form>
     <img id="result-image" src="" alt="Generated Quote Image" />
     <canvas id="canvas" width="800" height="600"></canvas>
@@ -133,6 +153,7 @@
       const Bech32MaxSize = 5000;
       const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
       const canvas = document.getElementById("canvas");
+      const fontSizeSelect = document.getElementById("font-size-select");
       const uploadButton = document.getElementById("upload-button");
       const resultImage = document.getElementById("result-image");
 
@@ -280,6 +301,7 @@
         author,
         quote,
         noteUrl,
+        quoteFontSize,
       }) {
         const image = await loadImage(imageUrl);
 
@@ -289,7 +311,6 @@
         const targetHeight = 600;
         const targetWidth = image.width * (targetHeight / image.height);
         const offsetX = (400 - targetWidth) / 2;
-        const quoteFontSize = 24;
 
         ctx.drawImage(image, offsetX, 0, targetWidth, targetHeight);
 
@@ -592,7 +613,7 @@
 
           disableGenerateButton();
 
-          const ctx = canvas.getContext("2d");
+          const ctx = canvas.getContext("2d", { willReadFrequently: true });
           const nostrEvent = await getNote(noteId);
 
           if (!nostrEvent) {
@@ -608,6 +629,7 @@
           const { author, imageUrl, quote } =
             await getDataFromEvent(nostrEvent);
           const noteUrl = `https://njump.me/${noteId}`;
+          const quoteFontSize = Number(fontSizeSelect.value);
 
           await drawQuoteImage({
             canvas,
@@ -616,6 +638,7 @@
             author,
             quote,
             noteUrl,
+            quoteFontSize,
           });
 
           enableGenerateButton();
