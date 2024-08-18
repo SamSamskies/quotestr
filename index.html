@@ -201,7 +201,7 @@
 
       async function generateQRCode(text) {
         return new Promise((resolve, reject) => {
-          QRCode.toDataURL(text, { width: 100 }, (err, url) => {
+          QRCode.toDataURL(text, { width: 140 }, (err, url) => {
             if (err) {
               reject(err);
             } else {
@@ -262,7 +262,7 @@
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           display: "-webkit-box",
-                          WebkitLineClamp: 11,
+                          WebkitLineClamp: 10,
                           WebkitBoxOrient: "vertical",
                           whiteSpace: "pre-wrap",
                           wordWrap: "break-word",
@@ -289,8 +289,8 @@
                           position: "absolute",
                           bottom: "20px",
                           right: "20px",
-                          width: "120px",
-                          height: "120px",
+                          width: "140px",
+                          height: "140px",
                         },
                       },
                     },
