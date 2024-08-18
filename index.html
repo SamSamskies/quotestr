@@ -6,34 +6,6 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <title>Quotestr</title>
     <style>
-      @font-face {
-        font-family: "Source Serif 4";
-        font-weight: normal;
-        font-style: normal;
-        src: url("/SourceSerif4-Light.ttf") format("truetype");
-      }
-
-      @font-face {
-        font-family: "Source Serif 4";
-        font-weight: normal;
-        font-style: italic;
-        src: url("/SourceSerif4-LightItalic.ttf") format("truetype");
-      }
-
-      @font-face {
-        font-family: "Noto Color Emoji";
-        font-weight: normal;
-        font-style: normal;
-        src: url("/NotoColorEmoji-Regular.ttf") format("truetype");
-      }
-
-      @font-face {
-        font-family: "Noto Color Emoji";
-        font-weight: normal;
-        font-style: italic;
-        src: url("/NotoColorEmoji-Regular.ttf") format("truetype");
-      }
-
       body {
         font-family: "Source Serif 4", serif;
         text-align: center;
@@ -97,19 +69,11 @@
         background-color: #ccc;
       }
 
-      #result-image-temp {
-        width: 100%;
-        height: 600px;
-        max-width: 800px;
-        margin: 0;
-      }
-
       #result-image {
         opacity: 0;
         width: 100%;
         height: 600px;
         max-width: 800px;
-        margin: 0;
       }
     </style>
   </head>
@@ -148,13 +112,14 @@
       />
       <button id="generate-button">Generate Image</button>
     </form>
-    <div id="result-image-temp"></div>
     <img id="result-image" src="" alt="Generated Quote Image" />
     <button id="upload-button">Upload to nostr.build</button>
     <script src="https://cdn.jsdelivr.net/npm/nostr-zap@0.22.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script src="https://unpkg.com/@resvg/resvg-wasm"></script>
     <script type="module">
-      import domToImage from "https://cdn.jsdelivr.net/npm/dom-to-image@2.6.0/+esm";
+      import satori from "https://cdn.jsdelivr.net/npm/satori@0.10.14/+esm";
+      import twemoji from "https://cdn.skypack.dev/twemoji";
       import { bech32 } from "https://cdn.jsdelivr.net/npm/@scure/base@1.1.1/+esm";
       import { uploadFile } from "https://cdn.jsdelivr.net/npm/nostr-build@0.2.1/+esm";
       import Swal from "https://cdn.jsdelivr.net/npm/sweetalert2@11.12.4/+esm";
@@ -166,12 +131,15 @@
       const Bech32MaxSize = 5000;
       const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
       const uploadButton = document.getElementById("upload-button");
-      const resultImageTemp = document.getElementById("result-image-temp");
       const resultImage = document.getElementById("result-image");
 
       if (!window.nostr) {
         initNostrLogin({ noBanner: false, darkMode: false });
       }
+
+      resvg.initWasm(
+        fetch("https://unpkg.com/@resvg/resvg-wasm/index_bg.wasm"),
+      );
 
       uploadButton.addEventListener("click", async () => {
         if (!resultImage.src.startsWith("data:image")) {
@@ -243,82 +211,139 @@
         });
       }
 
-      async function renderQuoteImageAsHtmlStr({
-        imageUrl,
-        author,
-        quote,
-        noteUrl,
-      }) {
-        return new Promise((resolve) => {
-          const normalizedQuote = quote.replace(/\n/g, "<br>");
-          const img = new Image();
-
-          img.crossOrigin = "anonymous";
-          img.src = imageUrl;
-          img.onload = async function () {
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
-
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
-
-            const staticImageDataUrl = canvas.toDataURL("image/jpeg");
-
-            resolve(`
-                <div
-                  style="display: flex; width: 800px; height: 600px; font-family: 'Source Serif 4', serif; position: relative;"
-                >
-                  <img
-                    src="${staticImageDataUrl}"
-                    style="width: 400px; height: 100%; object-fit: cover; filter: grayscale(100%);"
-                  />
-                  <div
-                    style="
-              display: flex;
-              flex-direction: column;
-              justify-content: flex-start;
-              align-items: center;
-              width: 400px;
-              height: 100%;
-              background-color: black;
-              color: white;
-              padding: 100px 20px 20px 20px;
-              box-sizing: border-box;
-              position: relative;
-            "
-                  >
-                    <div
-                      style="
-                font-size: 18px;
-                text-align: center;
-                max-height: 330px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-              "
-                    >
-                      ${normalizedQuote}
-                    </div>
-                    <div
-                      style="margin-top: 20px; font-size: 18px; font-style: italic; white-space: nowrap;"
-                    >
-                      —${author}
-                    </div>
-                    <img
-                      src="${await generateQRCode(noteUrl)}"
-                      style="
-                  position: absolute;
-                  bottom: 20px;
-                  right: 20px;
-                  width: 100px;
-                  height: 100px;
-                "
-                    />
-                  </div>
-                </div>
-              `);
-          };
+      async function drawQuoteImage({ imageUrl, author, quote, noteUrl }) {
+        const quoteObject = {
+          type: "div",
+          props: {
+            style: {
+              display: "flex",
+              width: "800px",
+              height: "600px",
+              fontFamily: "Source Serif 4, serif",
+              position: "relative",
+            },
+            children: [
+              {
+                type: "img",
+                props: {
+                  src: imageUrl,
+                  style: {
+                    width: "400px",
+                    height: "100%",
+                    objectFit: "cover",
+                    filter: "grayscale(100%)",
+                  },
+                },
+              },
+              {
+                type: "div",
+                props: {
+                  style: {
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-start",
+                    alignItems: "center",
+                    width: "400px",
+                    height: "100%",
+                    backgroundColor: "black",
+                    color: "white",
+                    padding: "100px 20px 20px 20px",
+                    boxSizing: "border-box",
+                    position: "relative",
+                  },
+                  children: [
+                    {
+                      type: "div",
+                      props: {
+                        style: {
+                          fontSize: "20px",
+                          textAlign: "center",
+                          maxHeight: "324px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 11,
+                          WebkitBoxOrient: "vertical",
+                          whiteSpace: "pre-wrap",
+                          wordWrap: "break-word",
+                        },
+                        children: quote,
+                      },
+                    },
+                    {
+                      type: "div",
+                      props: {
+                        style: {
+                          marginTop: "20px",
+                          fontSize: "18px",
+                          fontStyle: "italic",
+                        },
+                        children: `—${author}`,
+                      },
+                    },
+                    {
+                      type: "img",
+                      props: {
+                        src: await generateQRCode(noteUrl),
+                        style: {
+                          position: "absolute",
+                          bottom: "20px",
+                          right: "20px",
+                          width: "120px",
+                          height: "120px",
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        };
+        const sourceSerifRegularBuffer = await fetch(
+          "/SourceSerif4-Regular.ttf",
+        ).then((res) => res.arrayBuffer());
+        const soureSerifItalicBuffer = await fetch(
+          "/SourceSerif4-Italic.ttf",
+        ).then((res) => res.arrayBuffer());
+        const svg = await satori(quoteObject, {
+          width: 800,
+          height: 600,
+          fonts: [
+            {
+              name: "Source Serif 4",
+              data: sourceSerifRegularBuffer,
+              weight: 400,
+              style: "normal",
+            },
+            {
+              name: "Source Serif 4",
+              data: soureSerifItalicBuffer,
+              weight: 400,
+              style: "italic",
+            },
+          ],
+          loadAdditionalAsset: async (code, text) => {
+            if (code === "emoji") {
+              const codepoints = twemoji.convert.toCodePoint(text);
+              const url = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${codepoints}.svg`;
+              const response = await fetch(url);
+              const svgText = await response.text();
+              return `data:image/svg+xml;base64,${btoa(svgText)}`;
+            }
+          },
         });
+        const resvgJS = new resvg.Resvg(svg);
+        const pngBuffer = resvgJS.render(svg).asPng();
+        const base64 = btoa(
+          new Uint8Array(pngBuffer).reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            "",
+          ),
+        );
+
+        resultImage.src = `data:image/png;base64,${base64}`;
+        resultImage.style.opacity = "100%";
       }
 
       async function getNote(noteId) {
@@ -554,22 +579,15 @@
             await getDataFromEvent(nostrEvent);
           const noteUrl = `https://njump.me/${noteId}`;
 
-          resultImageTemp.innerHTML = await renderQuoteImageAsHtmlStr({
+          await drawQuoteImage({
             imageUrl: `https://nostrstuff.com/api/proxy?url=${imageUrl}`,
             author,
             quote,
             noteUrl,
           });
-          resultImage.style.opacity = "0";
-          resultImageTemp.style.display = "block";
-          resultImage.src = await domToImage.toJpeg(resultImageTemp);
 
-          resultImage.onload = async function () {
-            resultImageTemp.style.display = "none";
-            resultImage.style.opacity = "100%";
-            enableGenerateButton();
-            uploadButton.style.display = "block";
-          };
+          enableGenerateButton();
+          uploadButton.style.display = "block";
         });
     </script>
   </body>
