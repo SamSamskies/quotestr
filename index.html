@@ -225,29 +225,26 @@
       function drawText(ctx, text, x, y, maxWidth, lineHeight) {
         const words = text.split(" ");
         let line = "";
-        let testLine = "";
-        let testWidth = 0;
-        const lines = [];
+        let lines = 0;
 
-        for (let i = 0; i < words.length; i++) {
-          testLine = line + words[i] + " ";
-          testWidth = ctx.measureText(testLine).width;
-          if (testWidth > maxWidth && i > 0) {
-            lines.push(line);
-            line = words[i] + " ";
+        for (let n = 0; n < words.length; n++) {
+          const testLine = line + words[n] + " ";
+          const metrics = ctx.measureText(testLine);
+          const testWidth = metrics.width;
+
+          if (testWidth > maxWidth && n > 0) {
+            ctx.fillText(line, x, y);
+            line = words[n] + " ";
+            y += lineHeight;
+            lines++;
           } else {
             line = testLine;
           }
         }
-        lines.push(line);
+        ctx.fillText(line, x, y);
+        lines++;
 
-        for (let i = 0; i < lines.length; i++) {
-          const lineWidth = ctx.measureText(lines[i]).width;
-          const startX = x + (maxWidth - lineWidth) / 2;
-          ctx.fillText(lines[i], startX, y + i * lineHeight);
-        }
-
-        return lines.length;
+        return lines;
       }
 
       function applyGrayscale(ctx, width, height) {
@@ -300,16 +297,32 @@
 
         ctx.fillStyle = "black";
         ctx.fillRect(400, 0, 400, 600);
-        ctx.textAlign = "left";
+        ctx.textAlign = "center";
         ctx.font = `${quoteFontSize}px "Source Serif 4", serif`;
         ctx.fillStyle = "white";
 
-        const textX = 420;
+        const textX = 600;
         const textY = 120;
         const maxWidth = 360;
         const lineHeight = quoteFontSize + 8;
         const authorFontSize = quoteFontSize * 0.75;
-        const lines = drawText(ctx, quote, textX, textY, maxWidth, lineHeight);
+
+        // Split the quote into lines based on '\n' characters
+        const quoteLines = quote.split("\n");
+        let totalLines = 0;
+
+        // Draw each line of the quote
+        quoteLines.forEach((line, index) => {
+          const lines = drawText(
+            ctx,
+            line,
+            textX,
+            textY + totalLines * lineHeight,
+            maxWidth,
+            lineHeight,
+          );
+          totalLines += lines;
+        });
 
         ctx.font = `italic ${authorFontSize}px "Source Serif 4", serif`;
         ctx.fillStyle = "white";
@@ -318,7 +331,7 @@
           ctx,
           `— ${author}`,
           textX,
-          lines * lineHeight + textY + authorFontSize * 0.5,
+          totalLines * lineHeight + textY + authorFontSize * 0.5,
           maxWidth,
           lineHeight,
         );
@@ -492,7 +505,6 @@
       }
 
       function normalizeQuote(content, mentionIdMap) {
-        const maxChars = 280;
         let result = content;
 
         Object.entries(mentionIdMap).forEach(([nip19Id, profile]) => {
@@ -503,11 +515,7 @@
           }
         });
 
-        const re = new RegExp("\n", "g");
-
-        return `${result.replace(re, "").slice(0, maxChars)}${
-          result.length > maxChars ? "..." : ""
-        }`;
+        return result;
       }
 
       function enableGenerateButton() {
