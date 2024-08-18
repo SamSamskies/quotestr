@@ -609,15 +609,23 @@
             await getDataFromEvent(nostrEvent);
           const noteUrl = `https://njump.me/${noteId}`;
 
-          await drawQuoteImage({
-            imageUrl: `https://nostrstuff.com/api/proxy?url=${imageUrl}`,
-            author,
-            quote,
-            noteUrl,
-          });
-
-          enableGenerateButton();
-          uploadButton.style.display = "block";
+          try {
+            await drawQuoteImage({
+              imageUrl: `https://nostrstuff.com/api/proxy?url=${imageUrl}`,
+              author,
+              quote,
+              noteUrl,
+            });
+            uploadButton.style.display = "block";
+          } catch {
+            return Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: `Something went wrong. Contact NotBiebs and tell him this shit sucks.`,
+            });
+          } finally {
+            enableGenerateButton();
+          }
         });
     </script>
   </body>
