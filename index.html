@@ -325,7 +325,12 @@
           ],
           loadAdditionalAsset: async (code, text) => {
             if (code === "emoji") {
-              const codepoints = twemoji.convert.toCodePoint(text);
+              let codepoints = twemoji.convert.toCodePoint(text);
+
+              if (codepoints === "2620-fe0f") {
+                codepoints = "2620";
+              }
+
               const url = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${codepoints}.svg`;
               const response = await fetch(url);
               const svgText = await response.text();
