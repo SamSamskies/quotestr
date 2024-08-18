@@ -201,13 +201,17 @@
 
       async function generateQRCode(text) {
         return new Promise((resolve, reject) => {
-          QRCode.toDataURL(text, { width: 140 }, (err, url) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(url);
-            }
-          });
+          QRCode.toDataURL(
+            text,
+            { width: 140, errorCorrectionLevel: "L" },
+            (err, url) => {
+              if (err) {
+                reject(err);
+              } else {
+                resolve(url);
+              }
+            },
+          );
         });
       }
 
