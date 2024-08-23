@@ -536,6 +536,15 @@
           }
         });
 
+        // remove all hyperlinks
+        result = result.replace(/(\n*)https?:\/\/\S+(\n*)/gi, "");
+
+        // remove all note mentions
+        result = result.replace(
+          /(\n*)(?:nostr:|@)?(note1[023456789acdefghjklmnpqrstuvwxyz]{58}|nevent1[023456789acdefghjklmnpqrstuvwxyz]{61,})(\n*)/g,
+          "",
+        );
+
         return result;
       }
 
