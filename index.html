@@ -158,7 +158,11 @@
       const resultImage = document.getElementById("result-image");
 
       if (!window.nostr) {
-        initNostrLogin({ noBanner: false, darkMode: false });
+        initNostrLogin({
+          noBanner: false,
+          darkMode: false,
+          methods: ["connect", "local"],
+        });
       }
 
       uploadButton.addEventListener("click", async () => {
