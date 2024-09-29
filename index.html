@@ -156,6 +156,12 @@
       const fontSizeSelect = document.getElementById("font-size-select");
       const uploadButton = document.getElementById("upload-button");
       const resultImage = document.getElementById("result-image");
+      const state = {
+        authorName: "",
+        authorImageUrl: "",
+        quote: "",
+        noteUrl: "",
+      };
 
       if (!window.nostr) {
         initNostrLogin({
@@ -426,26 +432,6 @@
         return matches;
       }
 
-      function encodeBech32(prefix, data) {
-        let words = bech32.toWords(data);
-        return bech32.encode(prefix, words, Bech32MaxSize);
-      }
-
-      export function encodeBytes(prefix, bytes) {
-        return encodeBech32(prefix, bytes);
-      }
-
-      function hexToBytes(hex) {
-        if (hex.length % 2 !== 0) {
-          throw new Error("Invalid hex string");
-        }
-        const bytes = [];
-        for (let i = 0; i < hex.length; i += 2) {
-          bytes.push(parseInt(hex.substr(i, 2), 16));
-        }
-        return new Uint8Array(bytes);
-      }
-
       function bytesToHex(bytes) {
         return Array.from(bytes, (byte) =>
           byte.toString(16).padStart(2, "0"),
@@ -606,6 +592,10 @@
         return { author, imageUrl, quote };
       }
 
+      function getCtx() {
+        return canvas.getContext("2d", { willReadFrequently: true });
+      }
+
       document
         .getElementById("quote-form")
         .addEventListener("submit", async (event) => {
@@ -626,7 +616,7 @@
 
           disableGenerateButton();
 
-          const ctx = canvas.getContext("2d", { willReadFrequently: true });
+          const ctx = getCtx();
           const nostrEvent = await getNote(noteId);
 
           if (!nostrEvent) {
@@ -641,13 +631,14 @@
 
           const { author, imageUrl, quote } =
             await getDataFromEvent(nostrEvent);
+          const authorImageUrl = `https://nostrstuff.com/api/proxy?url=${imageUrl}`;
           const noteUrl = `https://njump.me/${noteId}`;
           const quoteFontSize = Number(fontSizeSelect.value);
 
           await drawQuoteImage({
             canvas,
             ctx,
-            imageUrl: `https://nostrstuff.com/api/proxy?url=${imageUrl}`,
+            imageUrl: authorImageUrl,
             author,
             quote,
             noteUrl,
@@ -656,7 +647,33 @@
 
           enableGenerateButton();
           uploadButton.style.display = "block";
+
+          state.authorName = author;
+          state.authorImageUrl = authorImageUrl;
+          state.quote = quote;
+          state.noteUrl = noteUrl;
         });
+
+      fontSizeSelect.addEventListener("change", (event) => {
+        if (
+          !state.authorName ||
+          !state.authorImageUrl ||
+          !state.quote ||
+          !state.noteUrl
+        ) {
+          return;
+        }
+
+        return drawQuoteImage({
+          canvas,
+          ctx: getCtx(),
+          imageUrl: state.authorImageUrl,
+          author: state.authorName,
+          quote: state.quote,
+          noteUrl: state.noteUrl,
+          quoteFontSize: Number(event.target.value),
+        });
+      });
     </script>
   </body>
 </html>
