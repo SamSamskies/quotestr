@@ -495,7 +495,7 @@ document
     const { author, imageUrl, quote } =
       await getDataFromEvent(nostrEvent);
     const authorImageUrl = `https://nostrstuff.com/api/proxy?url=${imageUrl}`;
-    const noteUrl = `https://njump.me/${noteId}`;
+    const noteUrl = `https://nostr.com/${noteId}`;
     const quoteFontSize = Number(fontSizeSelect.value);
 
     await drawQuoteImage({
