@@ -4,676 +4,177 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>Quotestr</title>
+    <meta
+      name="description"
+      content="Turn any Nostr note into a beautifully typeset quote image."
+    />
+    <meta name="theme-color" content="#08080d" />
+    <title>Quotestr — Nostr notes, as beautiful quote images</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@300&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,0..100;1,9..144,300..700,0..100&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..700;1,8..60,300..700&display=swap"
       rel="stylesheet"
     />
-    <style>
-      body {
-        font-family: "Source Serif 4", serif;
-        text-align: center;
-        background-color: #f4f4f4;
-        max-width: 800px;
-        margin: auto;
-      }
-
-      nav {
-        display: flex;
-        justify-content: flex-end;
-        padding: 20px;
-        gap: 12px;
-      }
-
-      nav a {
-        color: #7f00ff;
-        text-decoration: none;
-      }
-
-      nav button {
-        border: 0;
-        cursor: pointer;
-        background: transparent;
-      }
-
-      #upload-button {
-        display: none;
-        margin: 20px auto 40px auto;
-      }
-
-      #upload-button,
-      #generate-button {
-        background-color: #7f00ff;
-        color: white;
-        border: 1px solid grey;
-        padding: 10px 20px;
-        font-size: 16px;
-        cursor: pointer;
-      }
-
-      #upload-button:hover,
-      #generate-button:hover {
-        background-color: indigo;
-      }
-
-      form {
-        max-width: 600px;
-        margin: auto;
-        padding: 0 60px;
-      }
-
-      input {
-        width: 100%;
-        padding: 10px;
-        font-size: 16px;
-        margin-bottom: 10px;
-        box-sizing: border-box;
-      }
-
-      .input-row {
-        display: flex;
-        justify-content: flex-end;
-        gap: 20px;
-      }
-
-      #canvas {
-        display: none;
-      }
-
-      #upload-button:disabled,
-      #generate-button:disabled {
-        cursor: not-allowed;
-        background-color: #ccc;
-      }
-
-      #result-image {
-        display: none;
-        margin-top: 20px;
-        width: 100%;
-        max-width: 800px;
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <nav>
-      <a href="https://njump.me" target="_blank">What is Nostr?</a>
-      <a href="https://github.com/SamSamskies/quotestr" target="_blank">
-        <svg
-          width="25"
-          height="24"
-          viewBox="0 0 98 96"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            id="github-logo"
-            fill-rule="evenodd"
-            clip-rule="evenodd"
-            d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"
-          />
-        </svg>
-      </a>
-      <button
-        data-npub="npub1vp8fdcyejd4pqjyrjk9sgz68vuhq7pyvnzk8j0ehlljvwgp8n6eqsrnpsw"
-        title="Click to zap me :)"
-      >
-        ⚡️
-      </button>
-    </nav>
-    <h1>Make It A Quote</h1>
-    <form id="quote-form">
-      <input
-        type="text"
-        name="noteId"
-        placeholder="Enter nevent or note ID"
-        autofocus
-      />
-      <div class="input-row">
-        <select id="font-size-select">
-          <option value="24" selected>Font Size: 24px</option>
-          <option value="20">Font Size: 20px</option>
-          <option value="16">Font Size: 16px</option>
-        </select>
-        <button id="generate-button">Generate Image</button>
-      </div>
-    </form>
-    <img id="result-image" src="" alt="Generated Quote Image" />
-    <canvas id="canvas" width="800" height="600"></canvas>
-    <button id="upload-button">Upload to nostr.build</button>
+    <div class="bg-aurora" aria-hidden="true"></div>
+    <div class="bg-grain" aria-hidden="true"></div>
+
+    <div class="app">
+      <header class="nav">
+        <a class="brand" href="/" aria-label="Quotestr home">
+          <span class="brand-mark" aria-hidden="true">Q</span>
+          <span class="brand-name">quotestr</span>
+        </a>
+
+        <div class="nav-links">
+          <a
+            class="nav-link"
+            href="https://njump.me"
+            target="_blank"
+            rel="noopener"
+            data-label
+          >
+            <span class="nav-link-text">What is Nostr?</span>
+          </a>
+
+          <a
+            class="nav-icon"
+            href="https://github.com/SamSamskies/quotestr"
+            target="_blank"
+            rel="noopener"
+            aria-label="View source on GitHub"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 98 96"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                fill-rule="evenodd"
+                clip-rule="evenodd"
+                d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z"
+              />
+            </svg>
+          </a>
+
+          <button
+            class="nav-icon zap-btn"
+            data-npub="npub1vp8fdcyejd4pqjyrjk9sgz68vuhq7pyvnzk8j0ehlljvwgp8n6eqsrnpsw"
+            title="Send a zap"
+            aria-label="Send a zap"
+          >
+            <span aria-hidden="true">⚡</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="hero">
+          <p class="eyebrow">Nostr → Quote image</p>
+          <h1 class="display">
+            Make it <em>a quote.</em>
+          </h1>
+          <p class="lede">
+            Paste any nevent or note ID and get a typeset, shareable image —
+            author, quote, and a QR code back to the original note.
+          </p>
+        </section>
+
+        <section class="composer" aria-label="Quote composer">
+          <form id="quote-form" class="composer-form" autocomplete="off">
+            <label class="field">
+              <span class="field-label">Note ID</span>
+              <input
+                class="input"
+                type="text"
+                name="noteId"
+                placeholder="nevent1… or note1…"
+                spellcheck="false"
+                autocapitalize="off"
+                autocorrect="off"
+                autofocus
+              />
+            </label>
+
+            <div class="composer-actions">
+              <label class="select-field">
+                <span class="select-label">Font size</span>
+                <select id="font-size-select" class="select">
+                  <option value="24" selected>24 px</option>
+                  <option value="20">20 px</option>
+                  <option value="16">16 px</option>
+                </select>
+              </label>
+
+              <button
+                id="generate-button"
+                class="btn btn-primary"
+                type="submit"
+              >
+                <span class="btn-label">Generate image</span>
+                <svg
+                  class="btn-arrow"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M3 8H13M13 8L8.5 3.5M13 8L8.5 12.5"
+                    stroke="currentColor"
+                    stroke-width="1.75"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section class="preview" aria-label="Generated preview">
+          <div class="preview-frame" data-preview data-state="empty">
+            <div class="preview-placeholder">
+              <span class="placeholder-mark" aria-hidden="true">&rdquo;</span>
+              <span class="loading-ring" aria-hidden="true"></span>
+              <p class="placeholder-text">Your quote image will appear here.</p>
+              <p class="placeholder-meta">800 × 600 · PNG</p>
+            </div>
+            <img id="result-image" src="" alt="Generated quote image" />
+          </div>
+
+          <button
+            id="upload-button"
+            class="btn btn-secondary"
+            type="button"
+          >
+            <span class="btn-label">Upload to nostr.build</span>
+          </button>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p class="footer-note">Built on <em>Nostr</em></p>
+        <p class="footer-note">
+          <a
+            href="https://github.com/SamSamskies/quotestr"
+            target="_blank"
+            rel="noopener"
+            >Source</a
+          >
+        </p>
+      </footer>
+    </div>
+
+    <canvas id="canvas" width="800" height="600" aria-hidden="true"></canvas>
+
     <script src="https://cdn.jsdelivr.net/npm/nostr-zap@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-    <script type="module">
-      import { bech32 } from "https://cdn.jsdelivr.net/npm/@scure/base@1.1.1/+esm";
-      import { uploadFile } from "https://cdn.jsdelivr.net/npm/nostr-build@0.2.1/+esm";
-      import Swal from "https://cdn.jsdelivr.net/npm/sweetalert2@11.12.4/+esm";
-      import {
-        init as initNostrLogin,
-        logout as logoutNostrLogin,
-      } from "https://cdn.jsdelivr.net/npm/nostr-login@1.5.2/+esm";
-
-      const Bech32MaxSize = 5000;
-      const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
-      const canvas = document.getElementById("canvas");
-      const fontSizeSelect = document.getElementById("font-size-select");
-      const uploadButton = document.getElementById("upload-button");
-      const resultImage = document.getElementById("result-image");
-      const state = {
-        authorName: "",
-        authorImageUrl: "",
-        quote: "",
-        noteUrl: "",
-      };
-
-      if (!window.nostr) {
-        initNostrLogin({
-          noBanner: false,
-          darkMode: false,
-          methods: ["connect", "local", "extension"],
-        });
-      }
-
-      uploadButton.addEventListener("click", async () => {
-        if (!resultImage.src.startsWith("data:image")) {
-          return Swal.fire("image has already been uploaded to nostr.build");
-        }
-
-        canvas.toBlob(async (blob) => {
-          const file = new File([blob], "quotestr.png");
-          const sign = (event) => window.nostr.signEvent(event);
-
-          try {
-            uploadButton.disabled = true;
-
-            const { nip94_event: nip94Event } = await uploadFile({
-              file,
-              sign,
-            });
-            const nostrBuildImgSrc = nip94Event.tags.find(
-              (t) => t[0] === "url",
-            )?.[1];
-
-            if (nostrBuildImgSrc) {
-              resultImage.src = nostrBuildImgSrc;
-            }
-
-            Swal.fire({
-              title: "Success 🎉",
-              text: "You can now right-click the image to copy the nostr.build URL",
-              icon: "success",
-            });
-          } catch (err) {
-            if (
-              [
-                "user rejected",
-                "prompt was closed",
-                "rejected by user",
-              ].includes(err.message.toLowerCase())
-            ) {
-              return;
-            }
-
-            logoutNostrLogin();
-            Swal.fire({
-              title: "Error",
-              text: err.message || "Something went wrong :(",
-              icon: "error",
-            });
-          } finally {
-            uploadButton.disabled = false;
-          }
-        });
-      });
-
-      async function imageUrlToBlob(imageUrl) {
-        const response = await fetch(imageUrl);
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch image: ${response.statusText}`);
-        }
-
-        return response.blob();
-      }
-
-      async function loadImage(url) {
-        try {
-          const blob = await imageUrlToBlob(url);
-
-          return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.src = URL.createObjectURL(blob);
-          });
-        } catch (err) {
-          const blob = await imageUrlToBlob(defaultNostrichImage);
-
-          return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.src = URL.createObjectURL(blob);
-          });
-        }
-      }
-
-      function drawText(ctx, text, x, y, maxWidth, lineHeight) {
-        const words = text.split(" ");
-        let line = "";
-        let lines = 0;
-
-        for (let n = 0; n < words.length; n++) {
-          const testLine = line + words[n] + " ";
-          const metrics = ctx.measureText(testLine);
-          const testWidth = metrics.width;
-
-          if (testWidth > maxWidth && n > 0) {
-            ctx.fillText(line, x, y);
-            line = words[n] + " ";
-            y += lineHeight;
-            lines++;
-          } else {
-            line = testLine;
-          }
-        }
-        ctx.fillText(line, x, y);
-        lines++;
-
-        return lines;
-      }
-
-      function applyGrayscale(ctx, width, height) {
-        const imageData = ctx.getImageData(0, 0, width, height);
-        const data = imageData.data;
-
-        for (let i = 0; i < data.length; i += 4) {
-          const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-          data[i] = avg; // red
-          data[i + 1] = avg; // green
-          data[i + 2] = avg; // blue
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-      }
-
-      async function generateQRCode(text) {
-        return new Promise((resolve, reject) => {
-          QRCode.toDataURL(text, { width: 100, margin: 1 }, (err, url) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(url);
-            }
-          });
-        });
-      }
-
-      async function drawQuoteImage({
-        canvas,
-        ctx,
-        imageUrl,
-        author,
-        quote,
-        noteUrl,
-        quoteFontSize,
-      }) {
-        const image = await loadImage(imageUrl);
-
-        ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const targetHeight = 600;
-        const targetWidth = image.width * (targetHeight / image.height);
-        const offsetX = (400 - targetWidth) / 2;
-
-        ctx.drawImage(image, offsetX, 0, targetWidth, targetHeight);
-
-        applyGrayscale(ctx, 400, targetHeight);
-
-        ctx.fillStyle = "black";
-        ctx.fillRect(400, 0, 400, 600);
-        ctx.textAlign = "center";
-        ctx.font = `${quoteFontSize}px "Source Serif 4", serif`;
-        ctx.fillStyle = "white";
-
-        const textX = 600;
-        const textY = 120;
-        const maxWidth = 360;
-        const lineHeight = quoteFontSize + 8;
-        const authorFontSize = quoteFontSize * 0.75;
-
-        // Split the quote into lines based on '\n' characters
-        const quoteLines = quote.split("\n");
-        let totalLines = 0;
-
-        // Draw each line of the quote
-        quoteLines.forEach((line, index) => {
-          const lines = drawText(
-            ctx,
-            line,
-            textX,
-            textY + totalLines * lineHeight,
-            maxWidth,
-            lineHeight,
-          );
-          totalLines += lines;
-        });
-
-        ctx.font = `italic ${authorFontSize}px "Source Serif 4", serif`;
-        ctx.fillStyle = "white";
-
-        drawText(
-          ctx,
-          `— ${author}`,
-          textX,
-          totalLines * lineHeight + textY + authorFontSize * 0.5,
-          maxWidth,
-          lineHeight,
-        );
-
-        const qrCodeUrl = await generateQRCode(noteUrl);
-        const qrImage = new Image();
-        qrImage.src = qrCodeUrl;
-        qrImage.onload = () => {
-          // Draw the QR code in the bottom right corner
-          const qrSize = 100; // Size of the QR code
-          ctx.drawImage(
-            qrImage,
-            canvas.width - qrSize - 20,
-            canvas.height - qrSize - 20,
-            qrSize,
-            qrSize,
-          );
-
-          resultImage.src = canvas.toDataURL("image/jpeg");
-          resultImage.style.display = "block";
-        };
-      }
-
-      async function getNote(noteId) {
-        try {
-          return await fetch(`https://nostrstuff.com/api/notes/${noteId}`).then(
-            (res) => res.json(),
-          );
-        } catch (err) {
-          return null;
-        }
-      }
-
-      function extractAuthorValues(profile) {
-        const defaultName = "Anonymous";
-        const defaultValues = {
-          author: defaultName,
-          imageUrl: defaultNostrichImage,
-        };
-
-        if (!profile) {
-          return defaultValues;
-        }
-
-        try {
-          const { display_name, displayName, name, picture } = JSON.parse(
-            profile.content,
-          );
-
-          return {
-            author: display_name || displayName || name || defaultName,
-            imageUrl: picture,
-          };
-        } catch (err) {
-          return defaultValues;
-        }
-      }
-
-      function matchAll(text, regex) {
-        const matches = [];
-        let match;
-
-        while ((match = regex.exec(text)) !== null) {
-          matches.push(match[1]);
-        }
-
-        return matches;
-      }
-
-      function bytesToHex(bytes) {
-        return Array.from(bytes, (byte) =>
-          byte.toString(16).padStart(2, "0"),
-        ).join("");
-      }
-
-      function parseTLV(data) {
-        let result = {};
-        let rest = data;
-        while (rest.length > 0) {
-          let t = rest[0];
-          let l = rest[1];
-          if (!l) throw new Error(`malformed TLV ${t}`);
-          let v = rest.slice(2, 2 + l);
-          rest = rest.slice(2 + l);
-          if (v.length < l)
-            throw new Error(`not enough data to read on TLV ${t}`);
-          result[t] = result[t] || [];
-          result[t].push(v);
-        }
-        return result;
-      }
-
-      function decode(nip19Id) {
-        let { prefix, words } = bech32.decode(nip19Id, Bech32MaxSize);
-        let data = new Uint8Array(bech32.fromWords(words));
-
-        switch (prefix) {
-          case "nprofile": {
-            let tlv = parseTLV(data);
-            if (!tlv[0]?.[0]) throw new Error("missing TLV 0 for nprofile");
-            if (tlv[0][0].length !== 32)
-              throw new Error("TLV 0 should be 32 bytes");
-
-            return bytesToHex(tlv[0][0]);
-          }
-          case "npub":
-            return bytesToHex(data);
-          default:
-            throw new Error(`unknown prefix ${prefix}`);
-        }
-      }
-
-      function extractMentionIds(content) {
-        const userIdRegex =
-          /(?:nostr:|@)?(npub1[023456789acdefghjklmnpqrstuvwxyz]{58}|nprofile1[023456789acdefghjklmnpqrstuvwxyz]{61,})/g;
-
-        return matchAll(content, userIdRegex).map((nip19Id) => ({
-          pubkey: decode(nip19Id),
-          nip19Id,
-        }));
-      }
-
-      function buildUserProfilesUrl(userIds) {
-        const params = new URLSearchParams();
-
-        userIds.forEach((item) => {
-          params.append("userId", item);
-        });
-
-        return `https://nostrstuff.com/api/users?${params.toString()}`;
-      }
-
-      async function getUserProfiles(userIds) {
-        const url = buildUserProfilesUrl(userIds);
-
-        try {
-          const profiles = await fetch(url).then((res) => res.json());
-
-          return Object.fromEntries(
-            profiles.map((item) => [item.pubkey, item]),
-          );
-        } catch (err) {
-          return [];
-        }
-      }
-
-      function getUserName(profile) {
-        const { name } = JSON.parse(profile.content);
-
-        return name;
-      }
-
-      function normalizeQuote(content, mentionIdMap) {
-        let result = content;
-
-        Object.entries(mentionIdMap).forEach(([nip19Id, profile]) => {
-          const re = new RegExp(`(nostr:|@)?${nip19Id}`, "g");
-
-          if (profile) {
-            result = result.replace(re, `@${getUserName(profile)}`);
-          }
-        });
-
-        // remove all hyperlinks
-        result = result.replace(/(\n*)https?:\/\/\S+(\n*)/gi, "");
-
-        // remove all note mentions
-        result = result.replace(
-          /(\n*)(?:nostr:|@)?(note1[023456789acdefghjklmnpqrstuvwxyz]{58}|nevent1[023456789acdefghjklmnpqrstuvwxyz]{61,})(\n*)/g,
-          "",
-        );
-
-        return result;
-      }
-
-      function enableGenerateButton() {
-        document.getElementById("generate-button").disabled = false;
-      }
-
-      function disableGenerateButton() {
-        document.getElementById("generate-button").disabled = true;
-      }
-
-      function isZapReceiptEvent(event) {
-        return event.kind === 9735;
-      }
-
-      function getZapEvent(event) {
-        try {
-          return JSON.parse(event.tags.find((t) => t[0] === "description")[1]);
-        } catch (err) {
-          return null;
-        }
-      }
-
-      function getContent(event) {
-        return isZapReceiptEvent(event)
-          ? getZapEvent(event).content
-          : event.content;
-      }
-
-      function getAuthorPubkey(event) {
-        return isZapReceiptEvent(event)
-          ? getZapEvent(event).pubkey
-          : event.pubkey;
-      }
-
-      async function getDataFromEvent(event) {
-        const content = getContent(event);
-        const authorPubkey = getAuthorPubkey(event);
-        const mentionIds = extractMentionIds(content);
-        const profiles = await getUserProfiles([
-          authorPubkey,
-          ...mentionIds.map(({ nip19Id }) => nip19Id),
-        ]);
-        const { author, imageUrl } = extractAuthorValues(
-          profiles[authorPubkey],
-        );
-        const mentionIdMap = {};
-
-        mentionIds.forEach(({ pubkey, nip19Id }) => {
-          mentionIdMap[nip19Id] = profiles[pubkey];
-        });
-
-        const quote = normalizeQuote(content, mentionIdMap);
-
-        return { author, imageUrl, quote };
-      }
-
-      function getCtx() {
-        return canvas.getContext("2d", { willReadFrequently: true });
-      }
-
-      document
-        .getElementById("quote-form")
-        .addEventListener("submit", async (event) => {
-          event.preventDefault();
-          const formData = new FormData(event.target);
-          const noteId = formData
-            .get("noteId")
-            .trim()
-            .replace(/^nostr:/, "");
-
-          if (!noteId) {
-            return Swal.fire({
-              icon: "error",
-              title: "Error",
-              text: "Please enter a valid Nostr nevent or note ID.",
-            });
-          }
-
-          disableGenerateButton();
-
-          const ctx = getCtx();
-          const nostrEvent = await getNote(noteId);
-
-          if (!nostrEvent) {
-            enableGenerateButton();
-
-            return Swal.fire({
-              icon: "error",
-              title: "Error",
-              text: `Couldn't find Nostr note with ID ${noteId}. Contact NotBiebs and tell him this shit sucks.`,
-            });
-          }
-
-          const { author, imageUrl, quote } =
-            await getDataFromEvent(nostrEvent);
-          const authorImageUrl = `https://nostrstuff.com/api/proxy?url=${imageUrl}`;
-          const noteUrl = `https://njump.me/${noteId}`;
-          const quoteFontSize = Number(fontSizeSelect.value);
-
-          await drawQuoteImage({
-            canvas,
-            ctx,
-            imageUrl: authorImageUrl,
-            author,
-            quote,
-            noteUrl,
-            quoteFontSize,
-          });
-
-          enableGenerateButton();
-          uploadButton.style.display = "block";
-
-          state.authorName = author;
-          state.authorImageUrl = authorImageUrl;
-          state.quote = quote;
-          state.noteUrl = noteUrl;
-        });
-
-      fontSizeSelect.addEventListener("change", (event) => {
-        if (
-          !state.authorName ||
-          !state.authorImageUrl ||
-          !state.quote ||
-          !state.noteUrl
-        ) {
-          return;
-        }
-
-        return drawQuoteImage({
-          canvas,
-          ctx: getCtx(),
-          imageUrl: state.authorImageUrl,
-          author: state.authorName,
-          quote: state.quote,
-          noteUrl: state.noteUrl,
-          quoteFontSize: Number(event.target.value),
-        });
-      });
-    </script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>
