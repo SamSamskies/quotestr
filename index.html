@@ -185,6 +185,10 @@
       } from "https://cdn.jsdelivr.net/npm/nostr-login@1.5.2/+esm";
       
       const Bech32MaxSize = 5000;
+      const QR_SIZE = 120;
+      const QR_MARGIN = 2;
+      const QR_RENDER_SCALE = 2;
+      const QR_CANVAS_PAD = 6;
       const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
       const canvas = document.getElementById("canvas");
       const fontSizeSelect = document.getElementById("font-size-select");
@@ -271,7 +275,7 @@
             uploadButton.disabled = false;
             uploadButton.dataset.loading = "false";
           }
-        });
+        }, "image/png");
       });
       
       async function imageUrlToBlob(imageUrl) {
@@ -353,19 +357,40 @@
       }
       
       async function generateQRCode(text) {
+        const renderSize = QR_SIZE * QR_RENDER_SCALE;
+
         return new Promise((resolve, reject) => {
           QRCode.toDataURL(
             text,
-            { width: 100, margin: 1, errorCorrectionLevel: "H" },
+            {
+              width: renderSize,
+              margin: QR_MARGIN,
+              errorCorrectionLevel: getQrErrorCorrectionLevel(text),
+            },
             (err, url) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(url);
-            }
-          },
+              if (err) {
+                reject(err);
+              } else {
+                resolve(url);
+              }
+            },
           );
         });
+      }
+
+      function drawQrOnCanvas(ctx, qrImage, x, y, size) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(
+          x - QR_CANVAS_PAD,
+          y - QR_CANVAS_PAD,
+          size + QR_CANVAS_PAD * 2,
+          size + QR_CANVAS_PAD * 2,
+        );
+
+        const prevSmoothing = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(qrImage, x, y, size, size);
+        ctx.imageSmoothingEnabled = prevSmoothing;
       }
       
       async function drawQuoteImage({
@@ -430,35 +455,13 @@
         );
       
         const qrCodeUrl = await generateQRCode(noteUrl);
-        const logoBlobUrl = URL.createObjectURL(
-          await imageUrlToBlob("nostr-icon-black-on-white-32x32.png"),
-        );
-        const [qrImage, nostrLogo] = await Promise.all([
-          decodeImage(qrCodeUrl),
-          decodeImage(logoBlobUrl),
-        ]);
-        URL.revokeObjectURL(logoBlobUrl);
-      
-        const qrSize = 100;
-        const qrX = canvas.width - qrSize - 20;
-        const qrY = canvas.height - qrSize - 20;
-      
-        ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
-      
-        const logoSize = Math.round(qrSize * 0.28);
-        const halo = 1;
-        const haloSide = logoSize + halo * 2;
-        const haloX = qrX + (qrSize - haloSide) / 2;
-        const haloY = qrY + (qrSize - haloSide) / 2;
-      
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(haloX, haloY, haloSide, haloSide);
-      
-        const logoX = qrX + (qrSize - logoSize) / 2;
-        const logoY = qrY + (qrSize - logoSize) / 2;
-        ctx.drawImage(nostrLogo, logoX, logoY, logoSize, logoSize);
-      
-        resultImage.src = canvas.toDataURL("image/jpeg");
+        const qrImage = await decodeImage(qrCodeUrl);
+        const qrX = canvas.width - QR_SIZE - 20;
+        const qrY = canvas.height - QR_SIZE - 20;
+
+        drawQrOnCanvas(ctx, qrImage, qrX, qrY, QR_SIZE);
+
+        resultImage.src = canvas.toDataURL("image/png");
         showResult();
       }
       
@@ -512,6 +515,17 @@
         return Array.from(bytes, (byte) =>
           byte.toString(16).padStart(2, "0"),
         ).join("");
+      }
+
+      function normalizeNoteId(noteId) {
+        return noteId
+          .trim()
+          .replace(/^nostr:/i, "")
+          .replace(/^https?:\/\/(?:www\.)?nostr\.com\//i, "");
+      }
+
+      function getQrErrorCorrectionLevel(text) {
+        return text.length > 55 ? "L" : "M";
       }
       
       function parseTLV(data) {
@@ -667,10 +681,7 @@
         .addEventListener("submit", async (event) => {
           event.preventDefault();
           const formData = new FormData(event.target);
-          const noteId = formData
-            .get("noteId")
-            .trim()
-            .replace(/^nostr:/, "");
+          const noteId = normalizeNoteId(formData.get("noteId"));
       
           if (!noteId) {
             return Swal.fire({
@@ -703,7 +714,7 @@
           const authorImageUrl = `https://nostrstuff.com/api/proxy?url=${imageUrl}`;
           const noteUrl = `https://nostr.com/${noteId}`;
           const quoteFontSize = Number(fontSizeSelect.value);
-      
+
           await drawQuoteImage({
             canvas,
             ctx,
@@ -713,16 +724,16 @@
             noteUrl,
             quoteFontSize,
           });
-      
+
           setBusy(false);
-      
+
           state.authorName = author;
           state.authorImageUrl = authorImageUrl;
           state.quote = quote;
           state.noteUrl = noteUrl;
         });
       
-      fontSizeSelect.addEventListener("change", (event) => {
+      function redrawQuoteImage() {
         if (
           !state.authorName ||
           !state.authorImageUrl ||
@@ -731,7 +742,7 @@
         ) {
           return;
         }
-      
+
         return drawQuoteImage({
           canvas,
           ctx: getCtx(),
@@ -739,9 +750,11 @@
           author: state.authorName,
           quote: state.quote,
           noteUrl: state.noteUrl,
-          quoteFontSize: Number(event.target.value),
+          quoteFontSize: Number(fontSizeSelect.value),
         });
-      });
+      }
+
+      fontSizeSelect.addEventListener("change", redrawQuoteImage);
     </script>
   </body>
 </html>
