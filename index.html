@@ -185,6 +185,7 @@
       } from "https://cdn.jsdelivr.net/npm/nostr-login@1.5.2/+esm";
       
       const Bech32MaxSize = 5000;
+      const NOSTRSTUFF_API_BASE = "https://nostrstuff.vercel.app";
       const QR_SIZE = 120;
       const QR_MARGIN = 2;
       const QR_RENDER_SCALE = 2;
@@ -467,7 +468,7 @@
       
       async function getNote(noteId) {
         try {
-          return await fetch(`https://nostrstuff.com/api/notes/${noteId}`).then(
+          return await fetch(`${NOSTRSTUFF_API_BASE}/api/notes/${noteId}`).then(
             (res) => res.json(),
           );
         } catch (err) {
@@ -582,7 +583,7 @@
           params.append("userId", item);
         });
       
-        return `https://nostrstuff.com/api/users?${params.toString()}`;
+        return `${NOSTRSTUFF_API_BASE}/api/users?${params.toString()}`;
       }
       
       async function getUserProfiles(userIds) {
@@ -711,7 +712,7 @@
       
           const { author, imageUrl, quote } =
             await getDataFromEvent(nostrEvent);
-          const authorImageUrl = `https://nostrstuff.com/api/proxy?url=${imageUrl}`;
+          const authorImageUrl = `${NOSTRSTUFF_API_BASE}/api/proxy?url=${imageUrl}`;
           const noteUrl = `https://nostr.com/${noteId}`;
           const quoteFontSize = Number(fontSizeSelect.value);
 
