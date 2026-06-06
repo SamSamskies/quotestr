@@ -81,20 +81,21 @@
             Make it <em>a quote.</em>
           </h1>
           <p class="lede">
-            Paste any nevent or note ID and get a typeset, shareable image —
-            author, quote, and a QR code back to the original note.
+            Paste any nevent, note ID, npub, or nprofile and get a typeset,
+            shareable image — author, quote, and a QR code back to the source.
           </p>
         </section>
 
         <section class="composer" aria-label="Quote composer">
           <form id="quote-form" class="composer-form" autocomplete="off">
             <label class="field">
-              <span class="field-label">Note ID</span>
+              <span class="field-label">Nostr ID</span>
               <input
+                id="nostrId"
                 class="input"
                 type="text"
-                name="noteId"
-                placeholder="nevent1… or note1…"
+                name="nostrId"
+                placeholder="nevent1…, note1…, npub1…, or nprofile1…"
                 spellcheck="false"
                 autocapitalize="off"
                 autocorrect="off"
@@ -481,6 +482,7 @@
         const defaultValues = {
           author: defaultName,
           imageUrl: defaultNostrichImage,
+          about: "",
         };
       
         if (!profile) {
@@ -488,13 +490,13 @@
         }
       
         try {
-          const { display_name, displayName, name, picture } = JSON.parse(
-            profile.content,
-          );
+          const { display_name, displayName, name, picture, about } =
+            JSON.parse(profile.content);
       
           return {
             author: display_name || displayName || name || defaultName,
             imageUrl: picture,
+            about: about || "",
           };
         } catch (err) {
           return defaultValues;
@@ -518,11 +520,19 @@
         ).join("");
       }
 
-      function normalizeNoteId(noteId) {
-        return noteId
+      function normalizeNostrId(nostrId) {
+        return nostrId
           .trim()
           .replace(/^nostr:/i, "")
           .replace(/^https?:\/\/(?:www\.)?nostr\.com\//i, "");
+      }
+
+      function getNostrIdPrefix(nostrId) {
+        try {
+          return bech32.decode(nostrId, Bech32MaxSize).prefix;
+        } catch {
+          return null;
+        }
       }
 
       function getQrErrorCorrectionLevel(text) {
@@ -591,12 +601,16 @@
       
         try {
           const profiles = await fetch(url).then((res) => res.json());
-      
+
+          if (!Array.isArray(profiles)) {
+            return {};
+          }
+
           return Object.fromEntries(
             profiles.map((item) => [item.pubkey, item]),
           );
         } catch (err) {
-          return [];
+          return {};
         }
       }
       
@@ -672,6 +686,20 @@
       
         return { author, imageUrl, quote };
       }
+
+      async function getDataFromProfile(profileId) {
+        const profiles = await getUserProfiles([profileId]);
+        const pubkey = decode(profileId);
+        const profile = profiles[pubkey] || Object.values(profiles)[0];
+
+        if (!profile) {
+          return null;
+        }
+
+        const { author, imageUrl, about } = extractAuthorValues(profile);
+
+        return { author, imageUrl, quote: about };
+      }
       
       function getCtx() {
         return canvas.getContext("2d", { willReadFrequently: true });
@@ -682,38 +710,95 @@
         .addEventListener("submit", async (event) => {
           event.preventDefault();
           const formData = new FormData(event.target);
-          const noteId = normalizeNoteId(formData.get("noteId"));
+          const nostrId = normalizeNostrId(formData.get("nostrId"));
       
-          if (!noteId) {
+          if (!nostrId) {
             return Swal.fire({
               icon: "error",
               title: "Error",
-              text: "Please enter a valid Nostr nevent or note ID.",
+              text: "Please enter a valid Nostr nevent, note, npub, or nprofile ID.",
+            });
+          }
+
+          const nostrIdPrefix = getNostrIdPrefix(nostrId);
+
+          if (!nostrIdPrefix) {
+            return Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: "Please enter a valid Nostr nevent, note, npub, or nprofile ID.",
             });
           }
       
           setBusy(true);
       
           const ctx = getCtx();
-          const nostrEvent = await getNote(noteId);
-      
-          if (!nostrEvent) {
+          let author;
+          let imageUrl;
+          let quote;
+
+          if (nostrIdPrefix === "npub" || nostrIdPrefix === "nprofile") {
+            const profileData = await getDataFromProfile(nostrId);
+
+            if (!profileData) {
+              setBusy(false);
+              if (previewFrame && previewFrame.dataset.state === "loading") {
+                previewFrame.dataset.state = resultImage.src ? "ready" : "empty";
+              }
+
+              return Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: `Couldn't find Nostr profile with ID ${nostrId}.`,
+              });
+            }
+
+            ({ author, imageUrl, quote } = profileData);
+
+            if (!quote) {
+              setBusy(false);
+              if (previewFrame && previewFrame.dataset.state === "loading") {
+                previewFrame.dataset.state = resultImage.src ? "ready" : "empty";
+              }
+
+              return Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: "This profile has no about field to quote.",
+              });
+            }
+          } else if (nostrIdPrefix === "note" || nostrIdPrefix === "nevent") {
+            const nostrEvent = await getNote(nostrId);
+
+            if (!nostrEvent) {
+              setBusy(false);
+              if (previewFrame && previewFrame.dataset.state === "loading") {
+                previewFrame.dataset.state = resultImage.src ? "ready" : "empty";
+              }
+
+              return Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: `Couldn't find Nostr note with ID ${nostrId}. Contact NotBiebs and tell him this shit sucks.`,
+              });
+            }
+
+            ({ author, imageUrl, quote } = await getDataFromEvent(nostrEvent));
+          } else {
             setBusy(false);
             if (previewFrame && previewFrame.dataset.state === "loading") {
               previewFrame.dataset.state = resultImage.src ? "ready" : "empty";
             }
-      
+
             return Swal.fire({
               icon: "error",
               title: "Error",
-              text: `Couldn't find Nostr note with ID ${noteId}. Contact NotBiebs and tell him this shit sucks.`,
+              text: "Please enter a valid Nostr nevent, note, npub, or nprofile ID.",
             });
           }
-      
-          const { author, imageUrl, quote } =
-            await getDataFromEvent(nostrEvent);
+
           const authorImageUrl = `${NOSTRSTUFF_API_BASE}/api/proxy?url=${imageUrl}`;
-          const noteUrl = `https://nostr.com/${noteId}`;
+          const noteUrl = `https://nostr.com/${nostrId}`;
           const quoteFontSize = Number(fontSizeSelect.value);
 
           await drawQuoteImage({
