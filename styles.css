@@ -645,6 +645,7 @@ button {
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
+  transition: aspect-ratio var(--dur-med) var(--ease-out);
   border-radius: var(--radius-xl);
   overflow: hidden;
   background:
@@ -670,6 +671,10 @@ button {
 
 .preview-frame[data-state="ready"]::after {
   opacity: 0.35;
+}
+
+.preview-frame[data-aspect="metadata"] {
+  aspect-ratio: 800 / 644;
 }
 
 .preview-placeholder {

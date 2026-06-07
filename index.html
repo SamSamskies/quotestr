@@ -160,7 +160,7 @@
               <span class="placeholder-mark" aria-hidden="true">&rdquo;</span>
               <span class="loading-ring" aria-hidden="true"></span>
               <p class="placeholder-text">Your quote image will appear here.</p>
-              <p class="placeholder-meta">800 × 600 · PNG</p>
+              <p class="placeholder-meta">800 × 600+ · PNG</p>
             </div>
             <img id="result-image" src="" alt="Generated quote image" />
           </div>
@@ -210,8 +210,10 @@
       const CANVAS_WIDTH = 800;
       const BASE_HEIGHT = 600;
       const METADATA_PAD_X = 24;
-      const METADATA_HEIGHT = 44;
-      const METADATA_VALUE_FONT = '400 9px "JetBrains Mono", monospace';
+      const METADATA_PAD_Y = 14;
+      const METADATA_ROW_HEIGHT = 20;
+      const METADATA_LABEL_FONT = '500 9px "JetBrains Mono", monospace';
+      const METADATA_VALUE_FONT = '400 10px "JetBrains Mono", monospace';
       const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
       const canvas = document.getElementById("canvas");
       const fontSizeSelect = document.getElementById("font-size-select");
@@ -227,6 +229,8 @@
         noteUrl: "",
         authorNpub: "",
         postedDate: null,
+        nip05: "",
+        lud16: "",
         showMetadata: true,
       };
       
@@ -238,9 +242,18 @@
         });
       }
       
-      function showResult() {
+      function showResult({ showMetadata = false, canvasHeight = BASE_HEIGHT } = {}) {
         resultImage.style.display = "block";
-        if (previewFrame) previewFrame.dataset.state = "ready";
+        if (previewFrame) {
+          previewFrame.dataset.state = "ready";
+          if (showMetadata) {
+            previewFrame.style.aspectRatio = `${CANVAS_WIDTH} / ${canvasHeight}`;
+            previewFrame.dataset.aspect = "metadata";
+          } else {
+            previewFrame.style.aspectRatio = "";
+            previewFrame.dataset.aspect = "default";
+          }
+        }
         uploadButton.style.display = "inline-flex";
       }
       
@@ -431,17 +444,26 @@
         showMetadata = true,
         authorNpub = "",
         postedDate = null,
+        nip05 = "",
+        lud16 = "",
       }) {
         const [image, qrImage] = await Promise.all([
           loadImage(imageUrl),
           decodeImage(await generateQRCode(noteUrl)),
         ]);
 
+        const metadataHeight = showMetadata
+          ? measureMetadataHeight({ nip05, lud16 })
+          : 0;
+        const canvasHeight = showMetadata
+          ? BASE_HEIGHT + metadataHeight
+          : BASE_HEIGHT;
+
         canvas.width = CANVAS_WIDTH;
-        canvas.height = BASE_HEIGHT;
+        canvas.height = canvasHeight;
 
         ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, CANVAS_WIDTH, BASE_HEIGHT);
+        ctx.fillRect(0, 0, CANVAS_WIDTH, canvasHeight);
 
         const targetHeight = BASE_HEIGHT;
         const targetWidth = image.width * (targetHeight / image.height);
@@ -491,23 +513,23 @@
         );
 
         const qrX = CANVAS_WIDTH - QR_SIZE - 20;
-        const qrY = showMetadata
-          ? BASE_HEIGHT - METADATA_HEIGHT - QR_SIZE - QR_CANVAS_PAD - 16
-          : BASE_HEIGHT - QR_SIZE - 20;
+        const qrY = BASE_HEIGHT - QR_SIZE - 20;
 
         drawQrOnCanvas(ctx, qrImage, qrX, qrY, QR_SIZE);
 
         if (showMetadata) {
           drawMetadataBar(ctx, {
-            y: BASE_HEIGHT - METADATA_HEIGHT,
-            height: METADATA_HEIGHT,
+            y: BASE_HEIGHT,
+            height: metadataHeight,
             authorNpub,
             postedDate,
+            nip05,
+            lud16,
           });
         }
 
         resultImage.src = canvas.toDataURL("image/png");
-        showResult();
+        showResult({ showMetadata, canvasHeight });
       }
       
       async function getNote(noteId) {
@@ -526,6 +548,8 @@
           author: defaultName,
           imageUrl: defaultNostrichImage,
           about: "",
+          nip05: "",
+          lud16: "",
         };
       
         if (!profile) {
@@ -533,13 +557,15 @@
         }
       
         try {
-          const { display_name, displayName, name, picture, about } =
+          const { display_name, displayName, name, picture, about, nip05, lud16 } =
             JSON.parse(profile.content);
       
           return {
             author: display_name || displayName || name || defaultName,
             imageUrl: picture,
             about: about || "",
+            nip05: nip05 || "",
+            lud16: lud16 || "",
           };
         } catch (err) {
           return defaultValues;
@@ -580,7 +606,7 @@
 
       function formatPostedDate(unixTimestamp) {
         if (!unixTimestamp) {
-          return "—";
+          return "";
         }
 
         return new Date(unixTimestamp * 1000).toLocaleDateString("en-US", {
@@ -590,9 +616,23 @@
         });
       }
 
+      function measureMetadataHeight({ nip05 = "", lud16 = "" } = {}) {
+        let height = METADATA_PAD_Y * 2 + METADATA_ROW_HEIGHT;
+
+        if (nip05) {
+          height += METADATA_ROW_HEIGHT;
+        }
+
+        if (lud16) {
+          height += METADATA_ROW_HEIGHT;
+        }
+
+        return height;
+      }
+
       function drawMetadataBar(
         ctx,
-        { y, height, authorNpub, postedDate },
+        { y, height, authorNpub, postedDate, nip05, lud16 },
       ) {
         ctx.fillStyle = "#0a0a0a";
         ctx.fillRect(0, y, CANVAS_WIDTH, height);
@@ -600,21 +640,56 @@
         ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
         ctx.fillRect(0, y, CANVAS_WIDTH, 1);
 
-        const dateText = formatPostedDate(postedDate);
-        const textY = y + height / 2 + 3;
+        let cursorY = y + METADATA_PAD_Y;
+        ctx.textAlign = "left";
+
+        function rowBaseline() {
+          return cursorY + METADATA_ROW_HEIGHT - 4;
+        }
+
+        ctx.font = METADATA_LABEL_FONT;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+        ctx.fillText("NPUB", METADATA_PAD_X, rowBaseline());
+
+        const npubLabelWidth = ctx.measureText("NPUB").width;
 
         ctx.font = METADATA_VALUE_FONT;
         ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
-
-        ctx.textAlign = "right";
-        ctx.fillText(dateText, CANVAS_WIDTH - METADATA_PAD_X, textY);
-
-        ctx.textAlign = "left";
         ctx.fillText(
           authorNpub ? `nostr:${authorNpub}` : "—",
-          METADATA_PAD_X,
-          textY,
+          METADATA_PAD_X + npubLabelWidth + 10,
+          rowBaseline(),
         );
+
+        ctx.textAlign = "right";
+        ctx.fillText(
+          formatPostedDate(postedDate),
+          CANVAS_WIDTH - METADATA_PAD_X,
+          rowBaseline(),
+        );
+        ctx.textAlign = "left";
+        cursorY += METADATA_ROW_HEIGHT;
+
+        function drawLabeledRow(label, value) {
+          ctx.font = METADATA_LABEL_FONT;
+          ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+          ctx.fillText(label, METADATA_PAD_X, rowBaseline());
+
+          const labelWidth = ctx.measureText(label).width;
+
+          ctx.font = METADATA_VALUE_FONT;
+          ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+          ctx.fillText(value, METADATA_PAD_X + labelWidth + 10, rowBaseline());
+          cursorY += METADATA_ROW_HEIGHT;
+        }
+
+        if (nip05) {
+          drawLabeledRow("NIP-05", nip05);
+        }
+
+        if (lud16) {
+          drawLabeledRow("LIGHTNING ADDRESS", lud16);
+        }
       }
 
       function normalizeNostrId(nostrId) {
@@ -790,7 +865,7 @@
         const { mentionIds, profiles } = await getMentionProfiles(content, [
           authorPubkey,
         ]);
-        const { author, imageUrl } = extractAuthorValues(
+        const { author, imageUrl, nip05, lud16 } = extractAuthorValues(
           profiles[authorPubkey],
         );
         const quote = normalizeQuote(
@@ -805,6 +880,8 @@
           quote,
           authorPubkey,
           createdAt: event.created_at,
+          nip05,
+          lud16,
         };
       }
 
@@ -817,7 +894,8 @@
           return null;
         }
 
-        const { author, imageUrl, about } = extractAuthorValues(profile);
+        const { author, imageUrl, about, nip05, lud16 } =
+          extractAuthorValues(profile);
         const { mentionIds, profiles: mentionProfiles } =
           await getMentionProfiles(about);
         const quote = normalizeQuote(
@@ -832,6 +910,8 @@
           quote,
           authorPubkey: pubkey,
           createdAt: null,
+          nip05,
+          lud16,
         };
       }
       
@@ -874,6 +954,8 @@
           let quote;
           let authorPubkey;
           let createdAt = null;
+          let nip05 = "";
+          let lud16 = "";
 
           if (nostrIdPrefix === "npub" || nostrIdPrefix === "nprofile") {
             const profileData = await getDataFromProfile(nostrId, { stripUrls });
@@ -891,7 +973,8 @@
               });
             }
 
-            ({ author, imageUrl, quote, authorPubkey, createdAt } = profileData);
+            ({ author, imageUrl, quote, authorPubkey, createdAt, nip05, lud16 } =
+              profileData);
 
             if (!quote) {
               setBusy(false);
@@ -921,7 +1004,7 @@
               });
             }
 
-            ({ author, imageUrl, quote, authorPubkey, createdAt } =
+            ({ author, imageUrl, quote, authorPubkey, createdAt, nip05, lud16 } =
               await getDataFromEvent(nostrEvent, {
                 stripUrls,
               }));
@@ -954,6 +1037,8 @@
             showMetadata,
             authorNpub,
             postedDate: createdAt,
+            nip05,
+            lud16,
           });
 
           setBusy(false);
@@ -964,6 +1049,8 @@
           state.noteUrl = noteUrl;
           state.authorNpub = authorNpub;
           state.postedDate = createdAt;
+          state.nip05 = nip05;
+          state.lud16 = lud16;
           state.showMetadata = showMetadata;
         });
       
@@ -988,6 +1075,8 @@
           showMetadata: metadataSelect.value === "show",
           authorNpub: state.authorNpub,
           postedDate: state.postedDate,
+          nip05: state.nip05,
+          lud16: state.lud16,
         });
       }
 
