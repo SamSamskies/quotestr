@@ -541,6 +541,10 @@ button {
 }
 
 /* Primary: gradient with inner highlight + glow */
+.composer-actions .btn-primary {
+  margin-left: auto;
+}
+
 .btn-primary {
   flex: 0 1 auto;
   background:
@@ -843,7 +847,7 @@ button {
 
   .composer-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     align-items: end;
   }
@@ -860,10 +864,11 @@ button {
     font-size: 13px;
   }
 
-  .btn-primary {
+  .composer-actions .btn-primary {
     grid-column: 1 / -1;
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    justify-self: end;
+    margin-left: 0;
   }
 
   .preview-frame {

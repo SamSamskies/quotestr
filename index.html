@@ -121,6 +121,14 @@
                 </select>
               </label>
 
+              <label class="select-field">
+                <span class="select-label">Metadata</span>
+                <select id="metadata-select" class="select" name="showMetadata">
+                  <option value="hide">Hide</option>
+                  <option value="show" selected>Show</option>
+                </select>
+              </label>
+
               <button
                 id="generate-button"
                 class="btn btn-primary"
@@ -199,9 +207,15 @@
       const QR_MARGIN = 2;
       const QR_RENDER_SCALE = 2;
       const QR_CANVAS_PAD = 6;
+      const CANVAS_WIDTH = 800;
+      const BASE_HEIGHT = 600;
+      const METADATA_PAD_X = 24;
+      const METADATA_HEIGHT = 44;
+      const METADATA_VALUE_FONT = '400 9px "JetBrains Mono", monospace';
       const defaultNostrichImage = "https://i.nostr.build/jYXRE.jpg";
       const canvas = document.getElementById("canvas");
       const fontSizeSelect = document.getElementById("font-size-select");
+      const metadataSelect = document.getElementById("metadata-select");
       const uploadButton = document.getElementById("upload-button");
       const resultImage = document.getElementById("result-image");
       const previewFrame = document.querySelector("[data-preview]");
@@ -211,6 +225,9 @@
         authorImageUrl: "",
         quote: "",
         noteUrl: "",
+        authorNpub: "",
+        postedDate: null,
+        showMetadata: true,
       };
       
       if (!window.nostr) {
@@ -411,36 +428,45 @@
         quote,
         noteUrl,
         quoteFontSize,
+        showMetadata = true,
+        authorNpub = "",
+        postedDate = null,
       }) {
-        const image = await loadImage(imageUrl);
-      
+        const [image, qrImage] = await Promise.all([
+          loadImage(imageUrl),
+          decodeImage(await generateQRCode(noteUrl)),
+        ]);
+
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = BASE_HEIGHT;
+
         ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-        const targetHeight = 600;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, BASE_HEIGHT);
+
+        const targetHeight = BASE_HEIGHT;
         const targetWidth = image.width * (targetHeight / image.height);
         const offsetX = (400 - targetWidth) / 2;
-      
+
         ctx.drawImage(image, offsetX, 0, targetWidth, targetHeight);
-      
+
         applyGrayscale(ctx, 400, targetHeight);
-      
+
         ctx.fillStyle = "black";
-        ctx.fillRect(400, 0, 400, 600);
+        ctx.fillRect(400, 0, 400, BASE_HEIGHT);
         ctx.textAlign = "center";
         ctx.font = `${quoteFontSize}px "Source Serif 4", serif`;
         ctx.fillStyle = "white";
-      
+
         const textX = 600;
         const textY = 120;
         const maxWidth = 360;
         const lineHeight = quoteFontSize + 8;
         const authorFontSize = quoteFontSize * 0.75;
-      
+
         const quoteLines = quote.split("\n");
         let totalLines = 0;
-      
-        quoteLines.forEach((line, index) => {
+
+        quoteLines.forEach((line) => {
           const lines = drawText(
             ctx,
             line,
@@ -451,10 +477,10 @@
           );
           totalLines += lines;
         });
-      
+
         ctx.font = `italic ${authorFontSize}px "Source Serif 4", serif`;
         ctx.fillStyle = "white";
-      
+
         drawText(
           ctx,
           `— ${author}`,
@@ -463,13 +489,22 @@
           maxWidth,
           lineHeight,
         );
-      
-        const qrCodeUrl = await generateQRCode(noteUrl);
-        const qrImage = await decodeImage(qrCodeUrl);
-        const qrX = canvas.width - QR_SIZE - 20;
-        const qrY = canvas.height - QR_SIZE - 20;
+
+        const qrX = CANVAS_WIDTH - QR_SIZE - 20;
+        const qrY = showMetadata
+          ? BASE_HEIGHT - METADATA_HEIGHT - QR_SIZE - QR_CANVAS_PAD - 16
+          : BASE_HEIGHT - QR_SIZE - 20;
 
         drawQrOnCanvas(ctx, qrImage, qrX, qrY, QR_SIZE);
+
+        if (showMetadata) {
+          drawMetadataBar(ctx, {
+            y: BASE_HEIGHT - METADATA_HEIGHT,
+            height: METADATA_HEIGHT,
+            authorNpub,
+            postedDate,
+          });
+        }
 
         resultImage.src = canvas.toDataURL("image/png");
         showResult();
@@ -526,6 +561,60 @@
         return Array.from(bytes, (byte) =>
           byte.toString(16).padStart(2, "0"),
         ).join("");
+      }
+
+      function hexToBytes(hex) {
+        const bytes = new Uint8Array(hex.length / 2);
+
+        for (let i = 0; i < bytes.length; i++) {
+          bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+        }
+
+        return bytes;
+      }
+
+      function encodeNpub(pubkeyHex) {
+        const words = bech32.toWords(hexToBytes(pubkeyHex));
+        return bech32.encode("npub", words, Bech32MaxSize);
+      }
+
+      function formatPostedDate(unixTimestamp) {
+        if (!unixTimestamp) {
+          return "—";
+        }
+
+        return new Date(unixTimestamp * 1000).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
+      }
+
+      function drawMetadataBar(
+        ctx,
+        { y, height, authorNpub, postedDate },
+      ) {
+        ctx.fillStyle = "#0a0a0a";
+        ctx.fillRect(0, y, CANVAS_WIDTH, height);
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+        ctx.fillRect(0, y, CANVAS_WIDTH, 1);
+
+        const dateText = formatPostedDate(postedDate);
+        const textY = y + height / 2 + 3;
+
+        ctx.font = METADATA_VALUE_FONT;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+
+        ctx.textAlign = "right";
+        ctx.fillText(dateText, CANVAS_WIDTH - METADATA_PAD_X, textY);
+
+        ctx.textAlign = "left";
+        ctx.fillText(
+          authorNpub ? `nostr:${authorNpub}` : "—",
+          METADATA_PAD_X,
+          textY,
+        );
       }
 
       function normalizeNostrId(nostrId) {
@@ -710,7 +799,13 @@
           { stripUrls },
         );
 
-        return { author, imageUrl, quote };
+        return {
+          author,
+          imageUrl,
+          quote,
+          authorPubkey,
+          createdAt: event.created_at,
+        };
       }
 
       async function getDataFromProfile(profileId, { stripUrls = false } = {}) {
@@ -731,7 +826,13 @@
           { stripUrls },
         );
 
-        return { author, imageUrl, quote };
+        return {
+          author,
+          imageUrl,
+          quote,
+          authorPubkey: pubkey,
+          createdAt: null,
+        };
       }
       
       function getCtx() {
@@ -767,9 +868,12 @@
       
           const ctx = getCtx();
           const stripUrls = formData.get("stripUrls") === "strip";
+          const showMetadata = formData.get("showMetadata") === "show";
           let author;
           let imageUrl;
           let quote;
+          let authorPubkey;
+          let createdAt = null;
 
           if (nostrIdPrefix === "npub" || nostrIdPrefix === "nprofile") {
             const profileData = await getDataFromProfile(nostrId, { stripUrls });
@@ -787,7 +891,7 @@
               });
             }
 
-            ({ author, imageUrl, quote } = profileData);
+            ({ author, imageUrl, quote, authorPubkey, createdAt } = profileData);
 
             if (!quote) {
               setBusy(false);
@@ -817,9 +921,10 @@
               });
             }
 
-            ({ author, imageUrl, quote } = await getDataFromEvent(nostrEvent, {
-              stripUrls,
-            }));
+            ({ author, imageUrl, quote, authorPubkey, createdAt } =
+              await getDataFromEvent(nostrEvent, {
+                stripUrls,
+              }));
           } else {
             setBusy(false);
             if (previewFrame && previewFrame.dataset.state === "loading") {
@@ -836,6 +941,7 @@
           const authorImageUrl = `${NOSTRSTUFF_API_BASE}/api/proxy?url=${imageUrl}`;
           const noteUrl = `https://nostr.com/${nostrId}`;
           const quoteFontSize = Number(fontSizeSelect.value);
+          const authorNpub = encodeNpub(authorPubkey);
 
           await drawQuoteImage({
             canvas,
@@ -845,6 +951,9 @@
             quote,
             noteUrl,
             quoteFontSize,
+            showMetadata,
+            authorNpub,
+            postedDate: createdAt,
           });
 
           setBusy(false);
@@ -853,6 +962,9 @@
           state.authorImageUrl = authorImageUrl;
           state.quote = quote;
           state.noteUrl = noteUrl;
+          state.authorNpub = authorNpub;
+          state.postedDate = createdAt;
+          state.showMetadata = showMetadata;
         });
       
       function redrawQuoteImage() {
@@ -873,10 +985,14 @@
           quote: state.quote,
           noteUrl: state.noteUrl,
           quoteFontSize: Number(fontSizeSelect.value),
+          showMetadata: metadataSelect.value === "show",
+          authorNpub: state.authorNpub,
+          postedDate: state.postedDate,
         });
       }
 
       fontSizeSelect.addEventListener("change", redrawQuoteImage);
+      metadataSelect.addEventListener("change", redrawQuoteImage);
     </script>
   </body>
 </html>
