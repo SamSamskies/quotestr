@@ -113,6 +113,14 @@
                 </select>
               </label>
 
+              <label class="select-field">
+                <span class="select-label">URLs</span>
+                <select id="strip-urls-select" class="select" name="stripUrls">
+                  <option value="keep" selected>Keep</option>
+                  <option value="strip">Strip</option>
+                </select>
+              </label>
+
               <button
                 id="generate-button"
                 class="btn btn-primary"
@@ -640,7 +648,7 @@
         return { mentionIds, profiles };
       }
 
-      function normalizeQuote(content, mentionIdMap) {
+      function normalizeQuote(content, mentionIdMap, { stripUrls = false } = {}) {
         let result = content;
       
         Object.entries(mentionIdMap).forEach(([nip19Id, profile]) => {
@@ -651,7 +659,9 @@
           }
         });
       
-        result = result.replace(/(\n*)https?:\/\/\S+(\n*)/gi, "");
+        if (stripUrls) {
+          result = result.replace(/(\n*)https?:\/\/\S+(\n*)/gi, "");
+        }
       
         result = result.replace(
           /(\n*)(?:nostr:|@)?(note1[023456789acdefghjklmnpqrstuvwxyz]{58}|nevent1[023456789acdefghjklmnpqrstuvwxyz]{61,})(\n*)/g,
@@ -685,7 +695,7 @@
           : event.pubkey;
       }
       
-      async function getDataFromEvent(event) {
+      async function getDataFromEvent(event, { stripUrls = false } = {}) {
         const content = getContent(event);
         const authorPubkey = getAuthorPubkey(event);
         const { mentionIds, profiles } = await getMentionProfiles(content, [
@@ -697,12 +707,13 @@
         const quote = normalizeQuote(
           content,
           buildMentionIdMap(mentionIds, profiles),
+          { stripUrls },
         );
 
         return { author, imageUrl, quote };
       }
 
-      async function getDataFromProfile(profileId) {
+      async function getDataFromProfile(profileId, { stripUrls = false } = {}) {
         const profiles = await getUserProfiles([profileId]);
         const pubkey = decode(profileId);
         const profile = profiles[pubkey] || Object.values(profiles)[0];
@@ -717,6 +728,7 @@
         const quote = normalizeQuote(
           about,
           buildMentionIdMap(mentionIds, mentionProfiles),
+          { stripUrls },
         );
 
         return { author, imageUrl, quote };
@@ -754,12 +766,13 @@
           setBusy(true);
       
           const ctx = getCtx();
+          const stripUrls = formData.get("stripUrls") === "strip";
           let author;
           let imageUrl;
           let quote;
 
           if (nostrIdPrefix === "npub" || nostrIdPrefix === "nprofile") {
-            const profileData = await getDataFromProfile(nostrId);
+            const profileData = await getDataFromProfile(nostrId, { stripUrls });
 
             if (!profileData) {
               setBusy(false);
@@ -804,7 +817,9 @@
               });
             }
 
-            ({ author, imageUrl, quote } = await getDataFromEvent(nostrEvent));
+            ({ author, imageUrl, quote } = await getDataFromEvent(nostrEvent, {
+              stripUrls,
+            }));
           } else {
             setBusy(false);
             if (previewFrame && previewFrame.dataset.state === "loading") {
