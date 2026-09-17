@@ -256,6 +256,7 @@
         nip05: "",
         lud16: "",
         showMetadata: true,
+        isBusy: false,
         mp3ObjectUrl: "",
         mp3RequestId: 0,
       };
@@ -270,6 +271,11 @@
         }
       }
 
+      function syncCreateMp3Button() {
+        const isLoading = createMp3Button.dataset.loading === "true";
+        createMp3Button.disabled = isLoading || state.isBusy;
+      }
+
       function clearMp3Result() {
         state.mp3RequestId += 1;
         if (state.mp3ObjectUrl) {
@@ -282,11 +288,11 @@
       }
 
       function setMp3Loading(isLoading) {
-        createMp3Button.disabled = isLoading;
         createMp3Button.dataset.loading = isLoading ? "true" : "false";
         createMp3Button.querySelector(".btn-label").textContent = isLoading
           ? "Creating MP3…"
           : "Create MP3";
+        syncCreateMp3Button();
 
         if (isLoading) {
           mp3Audio.hidden = true;
@@ -348,9 +354,11 @@
       
       function setBusy(isBusy) {
         if (!generateButton) return;
+        state.isBusy = isBusy;
         generateButton.disabled = isBusy;
         generateButton.dataset.loading = isBusy ? "true" : "false";
         if (previewFrame && isBusy) previewFrame.dataset.state = "loading";
+        syncCreateMp3Button();
       }
       
       uploadButton.addEventListener("click", async () => {
@@ -408,6 +416,8 @@
       });
 
       createMp3Button.addEventListener("click", async () => {
+        if (state.isBusy) return;
+
         if (!hasSynthesisSupport()) {
           return Swal.fire({
             title: "Unavailable",
@@ -1197,6 +1207,16 @@
             clearMp3Result();
           }
 
+          state.authorName = author;
+          state.authorImageUrl = authorImageUrl;
+          state.quote = quote;
+          state.noteUrl = noteUrl;
+          state.authorNpub = authorNpub;
+          state.postedDate = createdAt;
+          state.nip05 = nip05;
+          state.lud16 = lud16;
+          state.showMetadata = showMetadata;
+
           await drawQuoteImage({
             canvas,
             ctx,
@@ -1213,16 +1233,6 @@
           });
 
           setBusy(false);
-
-          state.authorName = author;
-          state.authorImageUrl = authorImageUrl;
-          state.quote = quote;
-          state.noteUrl = noteUrl;
-          state.authorNpub = authorNpub;
-          state.postedDate = createdAt;
-          state.nip05 = nip05;
-          state.lud16 = lud16;
-          state.showMetadata = showMetadata;
         });
       
       function redrawQuoteImage() {
