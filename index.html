@@ -1120,6 +1120,8 @@
               text: "Please enter a valid Nostr nevent, note, npub, or nprofile ID.",
             });
           }
+
+          syncNostrIdQueryParam(nostrId);
       
           setBusy(true);
       
@@ -1263,6 +1265,32 @@
 
       fontSizeSelect.addEventListener("change", redrawQuoteImage);
       metadataSelect.addEventListener("change", redrawQuoteImage);
+
+      function getNostrIdFromQuery() {
+        const params = new URLSearchParams(window.location.search);
+        return normalizeNostrId(
+          params.get("nostrId") || params.get("id") || "",
+        );
+      }
+
+      function syncNostrIdQueryParam(nostrId) {
+        const url = new URL(window.location.href);
+        if (nostrId) {
+          url.searchParams.set("nostrId", nostrId);
+          url.searchParams.delete("id");
+        } else {
+          url.searchParams.delete("nostrId");
+          url.searchParams.delete("id");
+        }
+        history.replaceState(null, "", url);
+      }
+
+      const quoteForm = document.getElementById("quote-form");
+      const initialNostrId = getNostrIdFromQuery();
+      if (initialNostrId) {
+        document.getElementById("nostrId").value = initialNostrId;
+        quoteForm.requestSubmit();
+      }
     </script>
   </body>
 </html>
