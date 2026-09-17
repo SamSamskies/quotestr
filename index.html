@@ -110,6 +110,7 @@
                   <option value="24" selected>24 px</option>
                   <option value="20">20 px</option>
                   <option value="16">16 px</option>
+                  <option value="12">12 px</option>
                 </select>
               </label>
 
@@ -165,13 +166,31 @@
             <img id="result-image" src="" alt="Generated quote image" />
           </div>
 
-          <button
-            id="upload-button"
-            class="btn btn-secondary"
-            type="button"
-          >
-            <span class="btn-label">Upload to nostr.build</span>
-          </button>
+          <div class="preview-actions">
+            <button
+              id="upload-button"
+              class="btn btn-secondary"
+              type="button"
+            >
+              <span class="btn-label">Upload to nostr.build</span>
+            </button>
+            <button
+              id="create-mp3-button"
+              class="btn btn-secondary"
+              type="button"
+            >
+              <span class="btn-label">Create MP3</span>
+              <span class="btn-spinner" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <div id="mp3-result" class="mp3-result" hidden>
+            <div id="mp3-status" class="mp3-status" hidden>
+              <span class="mp3-status-spinner" aria-hidden="true"></span>
+              <span class="mp3-status-text">Creating MP3…</span>
+            </div>
+            <audio id="mp3-audio" controls preload="metadata" hidden></audio>
+          </div>
         </section>
       </main>
 
@@ -218,7 +237,12 @@
       const canvas = document.getElementById("canvas");
       const fontSizeSelect = document.getElementById("font-size-select");
       const metadataSelect = document.getElementById("metadata-select");
+      const SYNTHESIS_MAX_CODE_POINTS = 4096;
       const uploadButton = document.getElementById("upload-button");
+      const createMp3Button = document.getElementById("create-mp3-button");
+      const mp3Result = document.getElementById("mp3-result");
+      const mp3Status = document.getElementById("mp3-status");
+      const mp3Audio = document.getElementById("mp3-audio");
       const resultImage = document.getElementById("result-image");
       const previewFrame = document.querySelector("[data-preview]");
       const generateButton = document.getElementById("generate-button");
@@ -232,7 +256,75 @@
         nip05: "",
         lud16: "",
         showMetadata: true,
+        isBusy: false,
+        mp3ObjectUrl: "",
+        mp3RequestId: 0,
       };
+
+      function hasSynthesisSupport() {
+        try {
+          return Boolean(
+            window.inference?.experimental?.getFeatures?.()?.methods?.synthesize,
+          );
+        } catch {
+          return false;
+        }
+      }
+
+      function syncCreateMp3Button() {
+        const isLoading = createMp3Button.dataset.loading === "true";
+        createMp3Button.disabled = isLoading || state.isBusy;
+      }
+
+      function clearMp3Result() {
+        state.mp3RequestId += 1;
+        if (state.mp3ObjectUrl) {
+          URL.revokeObjectURL(state.mp3ObjectUrl);
+          state.mp3ObjectUrl = "";
+        }
+        mp3Audio.removeAttribute("src");
+        mp3Audio.load();
+        setMp3Loading(false);
+      }
+
+      function setMp3Loading(isLoading) {
+        createMp3Button.dataset.loading = isLoading ? "true" : "false";
+        createMp3Button.querySelector(".btn-label").textContent = isLoading
+          ? "Creating MP3…"
+          : "Create MP3";
+        syncCreateMp3Button();
+
+        if (isLoading) {
+          mp3Audio.hidden = true;
+          mp3Status.hidden = false;
+          mp3Result.hidden = false;
+          return;
+        }
+
+        mp3Status.hidden = true;
+        if (state.mp3ObjectUrl) {
+          mp3Audio.hidden = false;
+          mp3Result.hidden = false;
+        } else {
+          mp3Audio.hidden = true;
+          mp3Result.hidden = true;
+        }
+      }
+
+      function showMp3Result(objectUrl) {
+        if (state.mp3ObjectUrl) {
+          URL.revokeObjectURL(state.mp3ObjectUrl);
+        }
+        state.mp3ObjectUrl = objectUrl;
+        mp3Audio.src = objectUrl;
+        mp3Status.hidden = true;
+        mp3Audio.hidden = false;
+        mp3Result.hidden = false;
+      }
+
+      function isMp3RequestCurrent(requestId) {
+        return requestId === state.mp3RequestId;
+      }
       
       if (!window.nostr) {
         initNostrLogin({
@@ -255,13 +347,18 @@
           }
         }
         uploadButton.style.display = "inline-flex";
+        createMp3Button.style.display = hasSynthesisSupport()
+          ? "inline-flex"
+          : "none";
       }
       
       function setBusy(isBusy) {
         if (!generateButton) return;
+        state.isBusy = isBusy;
         generateButton.disabled = isBusy;
         generateButton.dataset.loading = isBusy ? "true" : "false";
         if (previewFrame && isBusy) previewFrame.dataset.state = "loading";
+        syncCreateMp3Button();
       }
       
       uploadButton.addEventListener("click", async () => {
@@ -316,6 +413,86 @@
             uploadButton.dataset.loading = "false";
           }
         }, "image/png");
+      });
+
+      createMp3Button.addEventListener("click", async () => {
+        if (state.isBusy) return;
+
+        if (!hasSynthesisSupport()) {
+          return Swal.fire({
+            title: "Unavailable",
+            text: "Inference Bridge synthesis is not available. Enable Experimental speech in the extension options and reload.",
+            icon: "info",
+          });
+        }
+
+        const text = (state.quote || "").trim();
+        if (!text) {
+          return Swal.fire({
+            title: "Error",
+            text: "Generate a quote image first.",
+            icon: "error",
+          });
+        }
+
+        if ([...text].length > SYNTHESIS_MAX_CODE_POINTS) {
+          return Swal.fire({
+            title: "Quote too long",
+            text: `Synthesis supports up to ${SYNTHESIS_MAX_CODE_POINTS.toLocaleString()} characters. Shorten the quote and try again.`,
+            icon: "error",
+          });
+        }
+
+        const requestId = ++state.mp3RequestId;
+
+        try {
+          setMp3Loading(true);
+
+          const parts = [];
+          for await (const chunk of window.inference.experimental.request({
+            method: "synthesize",
+            text,
+          })) {
+            if (!isMp3RequestCurrent(requestId)) return;
+            if (chunk.type === "audio_delta") parts.push(chunk.data);
+          }
+
+          if (!isMp3RequestCurrent(requestId)) return;
+
+          if (!parts.length) {
+            throw new Error("No audio was returned from synthesis.");
+          }
+
+          const objectUrl = URL.createObjectURL(
+            new Blob(parts, { type: "audio/mpeg" }),
+          );
+          if (!isMp3RequestCurrent(requestId)) {
+            URL.revokeObjectURL(objectUrl);
+            return;
+          }
+          showMp3Result(objectUrl);
+        } catch (err) {
+          if (!isMp3RequestCurrent(requestId)) return;
+
+          const message = (err?.message || "").toLowerCase();
+          if (
+            ["permission_denied", "aborted", "user rejected", "prompt was closed"].some(
+              (s) => message.includes(s) || err?.code === s,
+            )
+          ) {
+            return;
+          }
+
+          Swal.fire({
+            title: "Error",
+            text: err?.message || "Could not create MP3.",
+            icon: "error",
+          });
+        } finally {
+          if (isMp3RequestCurrent(requestId)) {
+            setMp3Loading(false);
+          }
+        }
       });
       
       async function imageUrlToBlob(imageUrl) {
@@ -1026,6 +1203,20 @@
           const quoteFontSize = Number(fontSizeSelect.value);
           const authorNpub = encodeNpub(authorPubkey);
 
+          if ((quote || "").trim() !== (state.quote || "").trim()) {
+            clearMp3Result();
+          }
+
+          state.authorName = author;
+          state.authorImageUrl = authorImageUrl;
+          state.quote = quote;
+          state.noteUrl = noteUrl;
+          state.authorNpub = authorNpub;
+          state.postedDate = createdAt;
+          state.nip05 = nip05;
+          state.lud16 = lud16;
+          state.showMetadata = showMetadata;
+
           await drawQuoteImage({
             canvas,
             ctx,
@@ -1042,16 +1233,6 @@
           });
 
           setBusy(false);
-
-          state.authorName = author;
-          state.authorImageUrl = authorImageUrl;
-          state.quote = quote;
-          state.noteUrl = noteUrl;
-          state.authorNpub = authorNpub;
-          state.postedDate = createdAt;
-          state.nip05 = nip05;
-          state.lud16 = lud16;
-          state.showMetadata = showMetadata;
         });
       
       function redrawQuoteImage() {
