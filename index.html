@@ -344,7 +344,6 @@
         createMp3Button.style.display = hasSynthesisSupport()
           ? "inline-flex"
           : "none";
-        clearMp3Result();
       }
       
       function setBusy(isBusy) {
@@ -1193,6 +1192,10 @@
           const noteUrl = `https://nostr.com/${nostrId}`;
           const quoteFontSize = Number(fontSizeSelect.value);
           const authorNpub = encodeNpub(authorPubkey);
+
+          if ((quote || "").trim() !== (state.quote || "").trim()) {
+            clearMp3Result();
+          }
 
           await drawQuoteImage({
             canvas,
